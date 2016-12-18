@@ -1,4 +1,5 @@
 
+# %%
 
 #construct the model, init variables and return the computation
 def model(img, tmp, kernel_shape):
@@ -43,6 +44,7 @@ def loss(p, radius, eps= 0.001):
 
 def train(num_steps, source_shape, template_shape, aligned=True):
     loss = np.zeros(num_steps)
+    error = np.zeros(num_steps/epoch_size)
     for i in range(num_steps):
         a = time.time()
         #Check id data is aligned
@@ -58,18 +60,31 @@ def train(num_steps, source_shape, template_shape, aligned=True):
         b = time.time()
 
         if i%epoch_size==0:
-            test(num_test_steps, source_shape, template_shape)
-
+            error[i/epoch_size] = test(num_test_steps, source_shape, template_shape)
+            print ("step: %g, test set average: %g"%(i,error[i/epoch_size]))
         #print("step %d, maximizing %g: max_p %g max_p_2 %g, time %g"%(i, -ls, p_max_c, p_max_c_2, b-a))
-
-    return loss
+    showLoss(loss, 100)
+    showLoss(error, 20)
+    return loss, error
 
 def test(num_test_steps, source_shape, template_shape, aligned=True):
     sum_dist = 0
     for i in range(num_test_steps):
         if aligned:
-            t,s = getAlignedSample(template_shape, source_shape, test_set)
+            t,s = getAlignedSample(template_shape, source_shape, test_set, i)
         ls = sess.run(l, feed_dict={image: s, temp: t})
         sum_dist = sum_dist - ls
+    return sum_dist/num_test_steps
 
-    print ("test set average: %g"%(sum_dist/num_test_steps))
+def evaluate(deterministic = True, source_shape=source_shape, template_shape=template_shape, aligned=True):
+    sum_dist = 0
+    if aligned:
+        t,s = getAlignedSample(template_shape, source_shape, test_set, deterministic)
+    norm, filt, s_f, t_f = sess.run([p, kernel, source_alpha, template_alpha], feed_dict={image: s, temp: t})
+
+    xcsurface(norm)
+    show(filt)
+    show(s)
+    show(s_f)
+    show(t)
+    show(t_f)

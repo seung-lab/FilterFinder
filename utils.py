@@ -1,9 +1,11 @@
+# %%
+
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import tensorflow as tf
 from scipy.misc import imresize
-
+import numpy.matlib
 
 # Compute
 def fftconvolve2d(x, y, padding="VALID"):
@@ -53,7 +55,7 @@ def fftconvolve2d(x, y, padding="VALID"):
     z = tf.slice(z, begin, size)
     return z
 
-def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.001):
+def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.001):
 
     #normalize and get variance
     dt = template - tf.reduce_mean(template)
@@ -76,6 +78,33 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.001)
     p = tf.div(numerator,denominator)
     p = tf.select(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
 
+    return p
+
+def normxcorr2(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.1):
+
+    #Do dim housekeeping
+    img = tf.expand_dims(tf.expand_dims(img, 0),3)
+    template = tf.expand_dims(tf.expand_dims(template,2),2)
+    #normalize and get variance
+    dt = template - tf.reduce_mean(template)
+    templatevariance = tf.reduce_sum(tf.square(dt))
+
+    t1 = tf.ones(tf.shape(dt))
+    numerator = tf.nn.conv2d (img, dt, strides=strides, padding=padding)
+
+    localsum2 = tf.nn.conv2d(tf.square(img), t1, strides=strides, padding=padding)
+    localsum = tf.nn.conv2d(img, t1, strides=strides, padding=padding)
+    localvariance = localsum2-tf.square(localsum)/tf.reduce_prod(tf.to_float(tf.shape(template)))
+    denominator = tf.sqrt(localvariance*templatevariance)
+
+    #zero housekeeping
+    numerator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
+    denominator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
+
+    #Compute Pearson
+    p = tf.div(numerator,denominator)
+    p = tf.select(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
+    p = tf.squeeze(p)
     return p
 
 #Data Management
@@ -129,11 +158,13 @@ def getAlignedData(train=True, test_size=60):
         #print('Shape of the array dataset_1: \n', np_data.shape)
     return np_data
 
-def getAlignedSample(template_shape, source_shape, data):
+def getAlignedSample(template_shape, source_shape, data, j = 0):
     i = np.random.randint(data.shape[0]-1)
     x = np.random.randint(data.shape[1]-template_shape[0]) #Pick a x coordinate and margin by 2000
     y = np.random.randint(data.shape[2]-template_shape[1])
      #Pick a y coordinate and margin by 2000
+    if j>0:
+        (i,x,y) = (j-1,50,50)
     source = np.transpose(data[i,:,:])
     template = np.transpose(data[i+1,x:x+template_shape[0],y:y+template_shape[0]])
     return template, source
@@ -146,8 +177,35 @@ def show(img):
 
 def showLoss(loss_data, smoothing = 100):
     fig = plt.figure()
-    smth = smooth(loss_data,smoothing, 'flat')
-    plt.plot(xrange(smth.shape[0]), smth)
+    hamming = smooth(loss_data, smoothing, 'hamming')
+    iters = loss_data.shape[0]
+    plt.plot(xrange(iters), loss_data, c='grey')
+    plt.plot(xrange(hamming.shape[0]), hamming, c='r')
+
+def xcsurface(xc):
+    from mpl_toolkits.mplot3d import Axes3D
+    from matplotlib import cm
+    from matplotlib.ticker import LinearLocator, FormatStrFormatter
+
+    N=xc.shape[0]
+    M=xc.shape[1]
+    X = np.arange(0, N, 1)
+    Y = np.arange(0, M, 1)
+    X, Y = np.meshgrid(X, Y)
+
+    fig = plt.figure("xc") #,figsize=(10,10))
+    plt.clf()
+
+    ax = fig.gca(projection='3d')
+    surf = ax.plot_surface(X, Y, xc, rstride=10, edgecolors="k",
+                    cstride=10, cmap=cm.copper, alpha=1, linewidth=0,
+                    antialiased=False)
+    #ax.set_zlim(-0.5, 0.5)
+
+    ax.zaxis.set_major_locator(LinearLocator(10))
+    ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))
+
+    fig.colorbar(surf, shrink=0.5, aspect=10)
 
 #Deprecated
 def part(source, template):
@@ -162,37 +220,7 @@ def part(source, template):
     p = (u_v - u_2*v_2)/(np.sqrt(u_sigma*v_sigma+0.001))
     return p
 
-def smooth(x,window_len=11,window='hanning'):
-    """smooth the data using a window with requested size.
-
-    This method is based on the convolution of a scaled window with the signal.
-    The signal is prepared by introducing reflected copies of the signal
-    (with the window size) in both ends so that transient parts are minimized
-    in the begining and end part of the output signal.
-
-    input:
-        x: the input signal
-        window_len: the dimension of the smoothing window; should be an odd integer
-        window: the type of window from 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'
-            flat window will produce a moving average smoothing.
-
-    output:
-        the smoothed signal
-
-    example:
-
-    t=linspace(-2,2,0.1)
-    x=sin(t)+randn(len(t))*0.1
-    y=smooth(x)
-
-    see also:
-
-    numpy.hanning, numpy.hamming, numpy.bartlett, numpy.blackman, numpy.convolve
-    scipy.signal.lfilter
-
-    TODO: the window parameter could be the window itself if an array instead of a string
-    NOTE: length(output) != length(input), to correct this: return y[(window_len/2-1):-(window_len/2)] instead of just y.
-    """
+def smooth(x,window_len=11,window='flat'):
 
     if x.ndim != 1:
         raise ValueError, "smooth only accepts 1 dimension arrays."
@@ -209,7 +237,7 @@ def smooth(x,window_len=11,window='hanning'):
         raise ValueError, "Window is on of 'flat', 'hanning', 'hamming', 'bartlett', 'blackman'"
 
 
-    s= x #np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
+    s= np.r_[x[window_len-1:0:-1],x,x[-1:-window_len:-1]]
     #print(len(s))
     if window == 'flat': #moving average
         w=np.ones(window_len,'d')
@@ -217,31 +245,4 @@ def smooth(x,window_len=11,window='hanning'):
         w=eval('np.'+window+'(window_len)')
 
     y=np.convolve(w/w.sum(),s,mode='valid')
-    return y
-
-def normxcorr2(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.1):
-
-    #Do dim housekeeping
-    img = tf.expand_dims(tf.expand_dims(img, 0),3)
-    template = tf.expand_dims(tf.expand_dims(template,2),2)
-    #normalize and get variance
-    dt = template - tf.reduce_mean(template)
-    templatevariance = tf.reduce_sum(tf.square(dt))
-
-    t1 = tf.ones(tf.shape(dt))
-    numerator = tf.nn.conv2d (img, dt, strides=strides, padding=padding)
-
-    localsum2 = tf.nn.conv2d(tf.square(img), t1, strides=strides, padding=padding)
-    localsum = tf.nn.conv2d(img, t1, strides=strides, padding=padding)
-    localvariance = localsum2-tf.square(localsum)/tf.reduce_prod(tf.to_float(tf.shape(template)))
-    denominator = tf.sqrt(localvariance*templatevariance)
-
-    #zero housekeeping
-    numerator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
-    denominator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
-
-    #Compute Pearson
-    p = tf.div(numerator,denominator)
-    p = tf.select(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
-    p = tf.squeeze(p)
-    return p
+    return y[window_len/2:y.shape[0]-window_len/2]
