@@ -22,7 +22,7 @@ def model(img, tmp, kernel_shape):
 
 
 #Compute max{p_!A}-max{p_A}
-def loss(p, radius, eps= 0.001):
+def loss(p, radius, eps= 0.001, ltype='diff'):
     #Get maximum p and mask the point
     p_max = tf.reduce_max(p)
     mask_p = p>p_max-tf.constant(eps)
@@ -40,13 +40,31 @@ def loss(p, radius, eps= 0.001):
     #Get the second peak and return
     p_max_2 = tf.reduce_max(tf.mul(mask_p,p))
     mask_p = tf.mul(mask_p,p)
-    return p_max_2 - p_max, p_max,  p_max_2, mask_p #Negative in order to minimize
+
+
+    if ltype == 'diff':
+        lossum = p_max_2 - p_max
+
+    elif ltype == 'ratio':
+        lossum = -p_max/(p_max_2+eps)
+
+    elif  ltype == 'diffratio':
+        lossum = lambd*p_max/(p_max_2+eps) + (p_max_2 - p_max)
+
+    return lossum, p_max,  p_max_2, mask_p #Negative in order to minimize
 
 def train(num_steps, source_shape, template_shape, aligned=True):
     loss = np.zeros(num_steps)
+    p_max_c1 = np.zeros(num_steps)
+    p_max_c2 = np.zeros(num_steps)
+
     error = np.zeros(num_steps/epoch_size)
+    er_p_max_c1 = np.zeros(num_steps/epoch_size)
+    er_p_max_c2 = np.zeros(num_steps/epoch_size)
+
+    a = time.time()
     for i in range(num_steps):
-        a = time.time()
+
         #Check id data is aligned
         if aligned:
             t,s = getAlignedSample(template_shape, source_shape, train_set)
@@ -54,35 +72,52 @@ def train(num_steps, source_shape, template_shape, aligned=True):
             t,s = getSample(template_shape, source_shape, resize, metadata)
 
         #Train step
-        _, ls, p_max_c, p_max_c_2 = sess.run([train_step,l, p_max, p_max_2], feed_dict={image: s, temp: t})
-        loss[i] = -ls
-        #Show Learning curve
-        b = time.time()
+        _, ls, p_max_c, p_max_c_2 = sess.run([train_step, l, p_max, p_max_2], feed_dict={image: s, temp: t})
 
+        loss[i] = np.absolute(ls)
+        p_max_c1[i] = p_max_c
+        p_max_c2[i] = p_max_c_2
+
+        #Evaluate
         if i%epoch_size==0:
-            error[i/epoch_size] = test(num_test_steps, source_shape, template_shape)
-            print ("step: %g, test set average: %g"%(i,error[i/epoch_size]))
+            b = time.time()
+            error[i/epoch_size], er_p_max_c1[i/epoch_size], er_p_max_c2[i/epoch_size] = test(num_test_steps, source_shape, template_shape)
+            print ("step: %g, test set average: %g, time %g"%(i,error[i/epoch_size], b-a))
+            a = time.time()
         #print("step %d, maximizing %g: max_p %g max_p_2 %g, time %g"%(i, -ls, p_max_c, p_max_c_2, b-a))
-    showLoss(loss, 100)
-    showLoss(error, 20)
-    return loss, error
+    #showLoss(loss, 100)
+    #showLoss(error, 1)
+
+    showMultiLoss(loss, p_max_c1, p_max_c2, 100)
+    showMultiLoss(error, er_p_max_c1, er_p_max_c2, 20)
+
+    return loss, error, p_max_c1, p_max_c2, er_p_max_c1, er_p_max_c2
 
 def test(num_test_steps, source_shape, template_shape, aligned=True):
     sum_dist = 0
+    sum_p1 = 0
+    sum_p2 = 0
     for i in range(num_test_steps):
         if aligned:
             t,s = getAlignedSample(template_shape, source_shape, test_set, i)
-        ls = sess.run(l, feed_dict={image: s, temp: t})
-        sum_dist = sum_dist - ls
-    return sum_dist/num_test_steps
+        ls, p_1, p_2 = sess.run([l, p_max, p_max_2], feed_dict={image: s, temp: t})
+        sum_dist = sum_dist + np.absolute(ls)
+        sum_p1 = sum_p1 + p_1
+        sum_p2 = sum_p2 + p_2
+
+    return sum_dist/num_test_steps, sum_p1/num_test_steps, sum_p2/num_test_steps
 
 def evaluate(deterministic = True, source_shape=source_shape, template_shape=template_shape, aligned=True):
     sum_dist = 0
     if aligned:
         t,s = getAlignedSample(template_shape, source_shape, test_set, deterministic)
-    norm, filt, s_f, t_f = sess.run([p, kernel, source_alpha, template_alpha], feed_dict={image: s, temp: t})
+    norm, filt, s_f, t_f, P_1, P_2 = sess.run([p, kernel, source_alpha, template_alpha, p_max, p_max_2], feed_dict={image: s, temp: t})
+
+    print (np.mean(filt))
+    print (np.mean(np.absolute(filt)))
 
     xcsurface(norm)
+    print(P_1, P_2)
     show(filt)
     show(s)
     show(s_f)

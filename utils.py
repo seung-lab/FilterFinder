@@ -182,6 +182,20 @@ def showLoss(loss_data, smoothing = 100):
     plt.plot(xrange(iters), loss_data, c='grey')
     plt.plot(xrange(hamming.shape[0]), hamming, c='r')
 
+def showMultiLoss(loss_data, p1, p2, smoothing = 100):
+    fig = plt.figure()
+    hamming = smooth(loss_data, smoothing, 'hamming')
+    iters = loss_data.shape[0]
+
+    p1_max = smooth(p1, smoothing, 'hamming')
+    p2_max = smooth(p2, smoothing, 'hamming')
+
+    plt.plot(xrange(p1_max.shape[0]), p1_max, color = 'orange')
+    plt.plot(xrange(p2_max.shape[0]), p2_max, color = 'wheat')
+    plt.plot(xrange(iters), loss_data, c='grey')
+    plt.plot(xrange(hamming.shape[0]), hamming, c='r')
+
+
 def xcsurface(xc):
     from mpl_toolkits.mplot3d import Axes3D
     from matplotlib import cm
@@ -200,7 +214,7 @@ def xcsurface(xc):
     surf = ax.plot_surface(X, Y, xc, rstride=10, edgecolors="k",
                     cstride=10, cmap=cm.copper, alpha=1, linewidth=0,
                     antialiased=False)
-    #ax.set_zlim(-0.5, 0.5)
+    ax.set_zlim(-0.5, 2)
 
     ax.zaxis.set_major_locator(LinearLocator(10))
     ax.zaxis.set_major_formatter(FormatStrFormatter('%.02f'))

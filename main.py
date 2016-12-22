@@ -1,8 +1,9 @@
 
 # %%
-%matplotlib inline
-%config InlineBackend.figure.format = 'svg'
+#%matplotlib inline
+#%config InlineBackend.figure.format = 'svg'
 import matplotlib.pyplot as plt
+import matplotlib.patches as mpatches
 import pylab as pl
 import tensorflow as tf
 import numpy as np
@@ -13,11 +14,13 @@ from math import floor
 
 source_shape = [512,512]
 template_shape = [250,250]
-kernel_shape = [32,32]
-kernel_identity = True
+kernel_shape = [128,128]
+kernel_identity = False
 radius = 20
 learing_rate = 0.02
-num_steps = 500
+lambd = -0.5
+loss_type = 'ratio'
+num_steps = 250
 epoch_size = 10
 num_test_steps = 60
 n_slices = 100
@@ -41,12 +44,13 @@ template_alpha = tf.placeholder(tf.float32, shape=template_shape)
 # Build the model and
 kernel, source_alpha, template_alpha  = model(image, temp, kernel_shape)
 p = normxcorr2FFT(source_alpha, template_alpha)
-l, p_max, p_max_2, mask_p  = loss(p, radius)
+l, p_max, p_max_2, mask_p  = loss(p, radius, ltype=loss_type)
 train_step = tf.train.AdamOptimizer(learing_rate).minimize(l)
 
 sess.run(tf.initialize_all_variables())
 
-loss_data, error_data = train(num_steps, source_shape, template_shape)
+train(num_steps, source_shape, template_shape)
+
 
 evaluate(50)
 
