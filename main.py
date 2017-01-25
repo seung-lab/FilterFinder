@@ -1,7 +1,7 @@
 
 # %%
-#%matplotlib inline
-#%config InlineBackend.figure.format = 'svg'
+%matplotlib inline
+%config InlineBackend.figure.format = 'svg'
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
 import pylab as pl
