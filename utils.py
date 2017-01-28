@@ -1,15 +1,42 @@
 
 # %%
 
-import h5py
-import matplotlib.pyplot as plt
-import numpy as np
-import tensorflow as tf
-from scipy.misc import imresize
-import numpy.matlib
+def bias_variable(shape, identity = False):
+    if identity:
+        initial = tf.constant(0.0)
+    else:
+        initial = tf.constant(0.001)
 
+    return tf.Variable(initial)
+
+def weight_variable(shape, identity = False):
+    #Build Convolution layer
+    if identity:
+        kernel_shape = np.array(shape)
+        kernel_init = np.zeros(shape)
+        kernel_init[kernel_shape[0]/2,shape[1]/2] = 1.0
+    else:
+        kernel_init = tf.truncated_normal(shape, stddev=0.1)
+
+    return tf.Variable(kernel_init)
+
+def convolve2d(x,y, padding = "VALID"):
+    x = tf.expand_dims(tf.expand_dims(x, dim=0), dim=3)
+    y = tf.expand_dims(tf.expand_dims(y,  dim=2), dim=3)
+    o = tf.nn.conv2d(x, y , strides=[1, 1, 1, 1], padding=padding)
+    return tf.squeeze(o)
+
+def softmax2d(image):
+    # ASSERT:  if 0 is softmax 0 under all conditions
+    shape = tuple(image.get_shape().as_list())
+    image = tf.reshape(image, [shape[0]*shape[1]], name=None)
+    soft_1D = tf.nn.softmax(image)
+    soft_image = tf.reshape(soft_1D, shape, name=None)
+    return soft_image
+    
 # Compute
 def fftconvolve2d(x, y, padding="VALID"):
+    #return convolve2d(x,y)
     """
     x and y must be real 2-d tensors.
 
@@ -38,7 +65,7 @@ def fftconvolve2d(x, y, padding="VALID"):
     x_fft = tf.fft2d(x, name='fft_X')
 
     # Do elementwise multiplication
-    convftt = tf.mul(x_fft, y_fft, name='fft_mult')
+    convftt = tf.multiply(x_fft, y_fft, name='fft_mult')
 
     # Come back
     z = tf.ifft2d(convftt, name='ifft_z')
@@ -56,6 +83,7 @@ def fftconvolve2d(x, y, padding="VALID"):
     z = tf.slice(z, begin, size)
     return z
 
+
 def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.001):
 
     #normalize and get variance
@@ -63,7 +91,7 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.001
     templatevariance = tf.reduce_sum(tf.square(dt))
 
     t1 = tf.ones(tf.shape(dt))
-    tr = tf.reverse(dt, [True, True])
+    tr = tf.reverse(dt, [0, 1])
     numerator = fftconvolve2d(img, tr, padding=padding) #tf.nn.conv2d (img, tr, strides=strides, padding=padding)
 
     localsum2 = fftconvolve2d(tf.square(img), t1, padding=padding)
@@ -72,14 +100,17 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.001
     denominator = tf.sqrt(localvariance*templatevariance)
 
     #zero housekeeping
-    numerator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
-    denominator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
+    numerator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
+    denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
 
     #Compute Pearson
     p = tf.div(numerator,denominator)
-    p = tf.select(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
+    p = tf.where(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
 
     return p
+
+def select(condition, x, y):
+    return tf.cond(condition, lambda:x, lambda: y)
 
 def normxcorr2(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.1):
 
@@ -99,12 +130,12 @@ def normxcorr2(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.1):
     denominator = tf.sqrt(localvariance*templatevariance)
 
     #zero housekeeping
-    numerator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
-    denominator = tf.select(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
+    numerator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
+    denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
 
     #Compute Pearson
     p = tf.div(numerator,denominator)
-    p = tf.select(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
+    p = tf.where(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
     p = tf.squeeze(p)
     return p
 
@@ -146,7 +177,7 @@ def getSample(template_shape, source_shape, resize, metadata):
 
 
 def getAlignedData(train=True, test_size=60):
-    with h5py.File('data/aligned/pinky_aligned_11184-11695_25018-25529_1-260.h5', 'r') as hf:
+    with h5py.File('/FilterFinder/data/aligned/pinky_aligned_11184-11695_25018-25529_1-260.h5', 'r') as hf:
         #print('List of arrays in this file: \n', hf.keys())
         data = hf.get('img')
         np_data = np.array(data)
@@ -157,7 +188,7 @@ def getAlignedData(train=True, test_size=60):
             np_data = np_data[shape[0]-test_size:shape[0],:,:]
 
         #print('Shape of the array dataset_1: \n', np_data.shape)
-    return np_data
+    return (np_data-np_data.mean())/np_data.std()
 
 def getAlignedSample(template_shape, source_shape, data, j = 0):
     i = np.random.randint(data.shape[0]-1)
