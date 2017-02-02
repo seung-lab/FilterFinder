@@ -14,25 +14,26 @@ from math import floor
 from scipy.misc import imresize
 import numpy.matlib
 
-source_shape = [512,512]
-template_shape = [250,250]
-kernel_shape = np.array([32,32])
-kernel_identity = False
+source_shape = [800,800]
+template_shape = [400,400]
+kernel_shape = np.array([16,16])
+kernel_identity = True
 radius = 20
 learing_rate = 0.01
 lambd = -0.5
 loss_type = 'diff'
-num_steps = 5000
+num_steps = 250
 epoch_size = 10
-num_test_steps = 60
+num_test_steps = 30
 n_slices = 100
 resize = 2
 #data = getData()
 
 # %%
-#metadata = getMetadata()
+metadata = getMetadata()
 train_set = getAlignedData(train=True)
 test_set = getAlignedData(train=False)
+
 
 # %%
 # Write normalised cross-correlation and loss function
@@ -52,15 +53,30 @@ train_step = tf.train.AdamOptimizer(learing_rate).minimize(l)
 sess.run(tf.global_variables_initializer())
 
 # %%
-train(num_steps, source_shape, template_shape)
+train(num_steps, source_shape, template_shape, False)
 
 
-evaluate(50, source_shape, template_shape)
-
+evaluate(400, source_shape, template_shape, aligned=False, pos=(7000, 27000))
 
 # To Do - Evaluate
-# - DEBUG: Check what blows up Seems source and template become 0.999 and afterwards it blows up
-# - EVALUATE: Get pathological cases
+# - EVALUATE: Get pathological cases - Done
+# - FEATURE: At more features at each layer
+# - FEATURE: Do striding
+# - EXPERIMENT: Make smaller the strides
 # - EVALUATE: Set Bandpass and compare
 # - EVALUATE: Experiment with embedded images (such as Template and Image are the same)
-# - FEATURE: elementwise multiply with softmax
+# - Experiment: Area under the curve - elementwise multiply with softmax
+# - EXPERIMENT: Try to run kernel on after normxcor (Ashwin)
+# - EXPERIMENT: Run on the same layer
+# - EXPERIMENT: Skip one layer
+
+# Next Steps
+# Decide the experiments of convolution and do grid search
+
+
+# Blows up
+# - DEBUG: Check what blows up Seems source and template become 0.999 and afterwards it blows up
+# - On bigger images the problem does not exists if the initializatin is identity
+# - it is not due to FFT (might be delaying cause. but not solving it)
+# - affect by changing the std of weight distribution and the learning rate (heavily)
+# - still exists

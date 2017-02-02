@@ -33,7 +33,7 @@ def softmax2d(image):
     soft_1D = tf.nn.softmax(image)
     soft_image = tf.reshape(soft_1D, shape, name=None)
     return soft_image
-    
+
 # Compute
 def fftconvolve2d(x, y, padding="VALID"):
     #return convolve2d(x,y)
@@ -142,7 +142,7 @@ def normxcorr2(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.1):
 #Data Management
 def getMetadata():
     import csv
-    f = open("data/prealigned/registry.txt", 'rt')
+    f = open("/FilterFinder/data/prealigned/registry.txt", 'rt')
     metadata = list(csv.reader(f, delimiter='\t'))
     return np.array(metadata)
 
@@ -155,20 +155,24 @@ def getDataSample(i, x, y, shape, delta,  metadata):
         start[1]=0
 
     #Check if not exceeding the borders
-    with h5py.File('data/prealigned/'+metadata[i,0]+'.h5', 'r') as hf:
+    with h5py.File('/FilterFinder/data/prealigned/'+metadata[i,0]+'.h5', 'r') as hf:
         data = hf.get('img')
         sample = np.array(data[start[0]:start[0]+shape[0], start[1]:start[1]+shape[1]])
     return sample
 
-def getSample(template_shape, source_shape, resize, metadata):
+def getSample(template_shape, source_shape, resize, metadata, j = 0, pos = (12334, 4121)):
     i = np.random.randint(metadata.shape[0]-1)
     x = np.random.randint(15000)+5000 #Pick a x coordinate and margin by 2000
     y = np.random.randint(15000)+5000 #Pick a y coordinate and margin by 2000
     delta = np.array([0,0])
-    print (i,x,y)
+    #print (i,x,y)
+    if j>0:
+        (x,y) = pos
+        i = j
+
     template = np.transpose(getDataSample(i,x,y, resize*np.array(template_shape), delta, metadata))
     template = imresize(template, template_shape)
-    delta = [int(metadata[i+1,2])-int(metadata[i,2]), int(metadata[i+1,3])-int(metadata[i,3])]
+    delta = [-int(metadata[i+1,3])+int(metadata[i,3]), -int(metadata[i+1,2])+int(metadata[i,2])]
     source = np.transpose(getDataSample(i+1,x,y, resize*np.array(source_shape), delta, metadata))
     source = imresize(source, source_shape)
     #source = np.expand_dims(source, 0)
