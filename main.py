@@ -14,26 +14,24 @@ from math import floor
 from scipy.misc import imresize
 import numpy.matlib
 
-source_shape = [800,800]
-template_shape = [400,400]
-kernel_shape = np.array([16,16])
-kernel_identity = True
+source_shape = [600,600]
+template_shape = [250,250]
+kernel_shape = np.array([3,3])
+kernel_identity = False
 radius = 20
-learing_rate = 0.01
+learing_rate = 0.001
 lambd = -0.5
 loss_type = 'diff'
 num_steps = 250
 epoch_size = 10
 num_test_steps = 30
 n_slices = 100
-resize = 2
-#data = getData()
+resize = 3
 
 # %%
 metadata = getMetadata()
-train_set = getAlignedData(train=True)
-test_set = getAlignedData(train=False)
-
+#train_set = getAlignedData(train=True)
+#test_set = getAlignedData(train=False)
 
 # %%
 # Write normalised cross-correlation and loss function
@@ -46,6 +44,7 @@ template_alpha = tf.placeholder(tf.float32, shape=template_shape)
 
 # Build the model and
 kernel, kernel_2, source_alpha, template_alpha  = model(image, temp, kernel_shape, kernel_identity)
+
 p = normxcorr2FFT(source_alpha, template_alpha)
 l, p_max, p_max_2, mask_p  = loss(p, radius, ltype=loss_type)
 train_step = tf.train.AdamOptimizer(learing_rate).minimize(l)
@@ -55,9 +54,21 @@ sess.run(tf.global_variables_initializer())
 # %%
 train(num_steps, source_shape, template_shape, False)
 
+# Experiment 1 (16x16) - Non Linear
+# 0.126 - 0.851 0.725 Identity Training 1
+# 0.127 - 0.655 0.528 Identity
+# 0.11 - 0.84 0.73 Identity Training 2 (with one layer)
+# 0.143 -  0.53 0.387 Random
+# 0.17 - 0.77 0.60 Random Initialized trained (with one layer)
 
-evaluate(400, source_shape, template_shape, aligned=False, pos=(7000, 27000))
+# Experiment 2 (32x22) - Non Linear
+# --- Identity Training 1
+# 0.128 Identity
+# 0.23 Identity Training 2 (with one layer)
+# 0.19 -  0.52 0.329 Random
+# 0.15 - 0.84 0.69 Random Initialized trained (with one layer)
 
+evaluate(70, source_shape, template_shape, aligned=False, pos=(16000, 17000))
 # To Do - Evaluate
 # - EVALUATE: Get pathological cases - Done
 # - FEATURE: At more features at each layer

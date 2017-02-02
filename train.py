@@ -5,25 +5,36 @@
 def model(img, tmp, kernel_shape, identity = False):
 
     # Init Convolution Weights
-    kernel = weight_variable(kernel_shape, identity)
-    kernel_2 = weight_variable(kernel_shape/2, identity)
+    kernel = weight_variable([kernel_shape[0],kernel_shape[1],1,256], identity)
+    kernel_2 = weight_variable([kernel_shape[0],kernel_shape[1],256,1], identity)
+
+    kernel_3 = weight_variable([2*kernel_shape[0],2*kernel_shape[1]], identity)
 
     bias_1 = bias_variable(identity)
     bias_2 = bias_variable(identity)
+    bias_3 = bias_variable(identity)
 
     # First Layer
-    source_alpha = fftconvolve2d(image, kernel, 'VALID')
+    source_alpha = convolve2d(image, kernel, 'VALID')
     source_alpha = tf.nn.relu(source_alpha+bias_1)
 
-    template_alpha = fftconvolve2d(tmp, kernel, 'VALID')
+    template_alpha = convolve2d(tmp, kernel, 'VALID')
     template_alpha = tf.nn.relu(template_alpha+bias_1)
 
     # Second Layer
-    source_alpha = fftconvolve2d(source_alpha, kernel_2, 'VALID')
+    source_alpha = convolve2d(source_alpha, kernel_2, 'VALID')
     source_alpha = tf.nn.relu(source_alpha+bias_2)
 
-    template_alpha = fftconvolve2d(template_alpha, kernel_2, 'VALID')
+    template_alpha = convolve2d(template_alpha, kernel_2, 'VALID')
     template_alpha = tf.nn.relu(template_alpha+bias_2)
+
+    # Third Layer
+    source_alpha = fftconvolve2d(source_alpha, kernel_3, 'VALID')
+    #source_alpha = tf.nn.relu(source_alpha+bias_3)
+
+    template_alpha = fftconvolve2d(template_alpha, kernel_3, 'VALID')
+    #template_alpha = tf.nn.relu(template_alpha+bias_3)
+
 
     return  kernel, kernel_2, source_alpha, template_alpha
 
@@ -142,17 +153,16 @@ def evaluate(deterministic, source_shape, template_shape, aligned=True, pos=(123
         t,s = getSample(template_shape, source_shape, resize, metadata, deterministic, pos)
     norm, filt, filt_2, s_f, t_f, P_1, P_2 = sess.run([p, kernel, kernel_2, source_alpha, template_alpha, p_max, p_max_2], feed_dict={image: s, temp: t})
 
-    #print (np.mean(filt))
-    #print (np.mean(np.absolute(filt)))
-    print(P_1, P_2)
+    #print(P_1-P_2)
+    #print(P_1, P_2)
     xcsurface(norm)
     show(norm)
-    print(filt_2)
+    #print(filt)
     #print((kernel_shape[0]/2,kernel_shape[1]/2))
     #filt[32,32] = 0
     #filt_2[16,16] = 0
-    show(filt)
-    show(filt_2)
+    show(filt[:,:,0,1])
+    show(filt_2[:,:,1,0])
     show(s)
     show(s_f)
     show(t)

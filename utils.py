@@ -20,10 +20,21 @@ def weight_variable(shape, identity = False):
 
     return tf.Variable(kernel_init)
 
-def convolve2d(x,y, padding = "VALID"):
-    x = tf.expand_dims(tf.expand_dims(x, dim=0), dim=3)
-    y = tf.expand_dims(tf.expand_dims(y,  dim=2), dim=3)
-    o = tf.nn.conv2d(x, y , strides=[1, 1, 1, 1], padding=padding)
+def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1]):
+
+    #Dim corrections
+    if(len(x.get_shape())<4):
+        x = tf.expand_dims(x, dim=0)
+
+    if(len(x.get_shape())<4):
+        x = tf.expand_dims(x, dim=3)
+
+    if (len(y.get_shape())==2):
+        y = tf.expand_dims(tf.expand_dims(y,  dim=2), dim=3)
+
+    y = tf.to_float(y, name='ToFloat')
+
+    o = tf.nn.conv2d(x, y, strides=strides, padding=padding)
     return tf.squeeze(o)
 
 def softmax2d(image):
@@ -84,7 +95,7 @@ def fftconvolve2d(x, y, padding="VALID"):
     return z
 
 
-def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.001):
+def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01):
 
     #normalize and get variance
     dt = template - tf.reduce_mean(template)
@@ -101,7 +112,7 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.001
 
     #zero housekeeping
     numerator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
-    denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
+    denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator))+tf.constant(eps), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
 
     #Compute Pearson
     p = tf.div(numerator,denominator)
@@ -112,11 +123,12 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.001
 def select(condition, x, y):
     return tf.cond(condition, lambda:x, lambda: y)
 
-def normxcorr2(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.1):
+def normxcorr2(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.001):
 
     #Do dim housekeeping
     img = tf.expand_dims(tf.expand_dims(img, 0),3)
     template = tf.expand_dims(tf.expand_dims(template,2),2)
+
     #normalize and get variance
     dt = template - tf.reduce_mean(template)
     templatevariance = tf.reduce_sum(tf.square(dt))
