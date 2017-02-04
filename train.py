@@ -5,35 +5,35 @@
 def model(img, tmp, kernel_shape, identity = False):
 
     # Init Convolution Weights
-    kernel = weight_variable([kernel_shape[0],kernel_shape[1],1,256], identity)
-    kernel_2 = weight_variable([kernel_shape[0],kernel_shape[1],256,1], identity)
+    #kernel = weight_variable([kernel_shape[0],kernel_shape[1],1,8], identity)
+    kernel_2 = weight_variable(kernel_shape, identity)
 
-    kernel_3 = weight_variable([2*kernel_shape[0],2*kernel_shape[1]], identity)
+    kernel = weight_variable([2*kernel_shape[0],2*kernel_shape[1]], identity)
 
     bias_1 = bias_variable(identity)
     bias_2 = bias_variable(identity)
     bias_3 = bias_variable(identity)
 
     # First Layer
-    source_alpha = convolve2d(image, kernel, 'VALID')
-    source_alpha = tf.nn.relu(source_alpha+bias_1)
+    #source_alpha = convolve2d(image, kernel, 'VALID')
+    #source_alpha = tf.nn.relu(source_alpha+bias_1)
 
-    template_alpha = convolve2d(tmp, kernel, 'VALID')
-    template_alpha = tf.nn.relu(template_alpha+bias_1)
-
-    # Second Layer
-    source_alpha = convolve2d(source_alpha, kernel_2, 'VALID')
-    source_alpha = tf.nn.relu(source_alpha+bias_2)
-
-    template_alpha = convolve2d(template_alpha, kernel_2, 'VALID')
-    template_alpha = tf.nn.relu(template_alpha+bias_2)
+    #template_alpha = convolve2d(tmp, kernel, 'VALID')
+    #template_alpha = tf.nn.relu(template_alpha+bias_1)
 
     # Third Layer
-    source_alpha = fftconvolve2d(source_alpha, kernel_3, 'VALID')
-    #source_alpha = tf.nn.relu(source_alpha+bias_3)
+    source_alpha = fftconvolve2d(image, kernel, 'VALID')
+    source_alpha = tf.nn.relu(source_alpha+bias_3)
 
-    template_alpha = fftconvolve2d(template_alpha, kernel_3, 'VALID')
-    #template_alpha = tf.nn.relu(template_alpha+bias_3)
+    template_alpha = fftconvolve2d(tmp, kernel, 'VALID')
+    template_alpha = tf.nn.relu(template_alpha+bias_3)
+
+    # Second Layer
+    source_alpha = fftconvolve2d(source_alpha, kernel_2, 'VALID')
+    source_alpha = tf.nn.relu(source_alpha+bias_2)
+
+    template_alpha = fftconvolve2d(template_alpha, kernel_2, 'VALID')
+    template_alpha = tf.nn.relu(template_alpha+bias_2)
 
 
     return  kernel, kernel_2, source_alpha, template_alpha
@@ -68,7 +68,7 @@ def loss(p, radius, eps= 0.001, ltype='diff', softmax=False):
     mask_p = tf.multiply(mask_p,p)
 
     if ltype == 'diff':
-        lossum = p_max_2 - p_max
+        lossum = -tf.square(-p_max_2 + p_max)
 
     elif ltype == 'ratio':
         lossum = -p_max/(p_max_2+eps)
@@ -87,9 +87,12 @@ def train(num_steps, source_shape, template_shape, aligned=True):
     er_p_max_c1 = np.zeros(num_steps/epoch_size)
     er_p_max_c2 = np.zeros(num_steps/epoch_size)
 
+    t,s = getSample(template_shape, source_shape, resize, metadata)
+    norm, filt, s_f, t_f = sess.run([p, kernel, source_alpha, template_alpha], feed_dict={image: s, temp: t})
     a = time.time()
     for i in range(num_steps):
-
+        old_s, old_t = s, t
+        old_norm, old_filt, old_s_f, old_t_f = norm, filt, s_f, t_f
         #Check id data is aligned
         if aligned:
             t,s = getAlignedSample(template_shape, source_shape, train_set)
@@ -97,9 +100,17 @@ def train(num_steps, source_shape, template_shape, aligned=True):
             t,s = getSample(template_shape, source_shape, resize, metadata)
 
         #Train step
-        _, ls, p_max_c, p_max_c_2 = sess.run([train_step, l, p_max, p_max_2],
+        _, ls, p_max_c, p_max_c_2, norm, filt, s_f, t_f, = sess.run([train_step, l, p_max, p_max_2, p, kernel, source_alpha, template_alpha],
                                              feed_dict={image: s, temp: t})
+        if ls ==0:
+            show(old_norm)
+            show(old_filt)
+            show(old_s)
+            show(old_s_f)
+            show(old_t)
+            show(old_t_f)
 
+            #show()
         loss[i] = np.absolute(ls)
         p_max_c1[i] = p_max_c
         p_max_c2[i] = p_max_c_2
@@ -153,16 +164,17 @@ def evaluate(deterministic, source_shape, template_shape, aligned=True, pos=(123
         t,s = getSample(template_shape, source_shape, resize, metadata, deterministic, pos)
     norm, filt, filt_2, s_f, t_f, P_1, P_2 = sess.run([p, kernel, kernel_2, source_alpha, template_alpha, p_max, p_max_2], feed_dict={image: s, temp: t})
 
-    #print(P_1-P_2)
-    #print(P_1, P_2)
+    print(P_1-P_2)
+    print(P_1, P_2)
     xcsurface(norm)
     show(norm)
+
     #print(filt)
     #print((kernel_shape[0]/2,kernel_shape[1]/2))
     #filt[32,32] = 0
     #filt_2[16,16] = 0
-    show(filt[:,:,0,1])
-    show(filt_2[:,:,1,0])
+    show(filt[:,:])
+    show(filt_2[:,:])
     show(s)
     show(s_f)
     show(t)

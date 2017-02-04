@@ -16,7 +16,7 @@ def weight_variable(shape, identity = False):
         kernel_init = np.zeros(shape)
         kernel_init[kernel_shape[0]/2,shape[1]/2] = 1.0
     else:
-        kernel_init = tf.truncated_normal(shape, stddev=0.1)
+        kernel_init = tf.truncated_normal(shape, stddev=0.01)
 
     return tf.Variable(kernel_init)
 
@@ -175,7 +175,7 @@ def getDataSample(i, x, y, shape, delta,  metadata):
 def getSample(template_shape, source_shape, resize, metadata, j = 0, pos = (12334, 4121)):
     i = np.random.randint(metadata.shape[0]-1)
     x = np.random.randint(15000)+5000 #Pick a x coordinate and margin by 2000
-    y = np.random.randint(15000)+5000 #Pick a y coordinate and margin by 2000
+    y = np.random.randint(10000)+10000 #Pick a y coordinate and margin by 2000
     delta = np.array([0,0])
     #print (i,x,y)
     if j>0:
@@ -189,7 +189,12 @@ def getSample(template_shape, source_shape, resize, metadata, j = 0, pos = (1233
     source = imresize(source, source_shape)
     #source = np.expand_dims(source, 0)
 
-    return template, source
+    #HACK: Check the quality
+    n_temp = np.prod(template_shape)
+    n_sour = np.prod(source_shape)
+    if np.sum(template==0)>n_temp/4 or np.sum(template>250)>n_temp/4 or np.sum(source==0)>n_sour/4 or np.sum(template>250)>n_sour/4:
+        return getSample(template_shape, source_shape, resize, metadata, j, pos)
+    return (template-template.mean())/template.std(), (source-source.mean())/source.std()
 
 
 def getAlignedData(train=True, test_size=60):
