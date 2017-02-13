@@ -1,2 +1,6 @@
 /data
 dump.py
+*.pyc
+/archive
+/logs
+/model
