@@ -13,8 +13,10 @@ class Data(object):
         if prepare:
             self.metadata = self.getMetadata(hparams)
         else:
+            self.metadata = self.getMetadata(hparams)
             self.s_train, self.t_train = self.inputs(True, hparams)
-
+            self.test = self.getBatch(hparams, hparams.pathset)
+            #self.s_test, self.t_test = self.inputs(False, hparams)
 
     def getMetadata(self, hparams):
         import csv
@@ -62,7 +64,6 @@ class Data(object):
 
         return template/256.0, source/256.0
 
-
     def getAlignedData(self, train=True, test_size=60):
         with h5py.File('/FilterFinder/data/aligned/pinky_aligned_11184-11695_25018-25529_1-260.h5', 'r') as hf:
             #print('List of arrays in this file: \n', hf.keys())
@@ -103,23 +104,8 @@ class Data(object):
             else:
                 template[i], search_space[i] = self.getSample(template_shape[1:3], search_shape[1:3], hparams.resize, self.metadata,  pathset[i][0], pathset[i][1:3])
         return template, search_space
-
-    def getBatch_v2(self, hparams):
-
-        with tf.Session() as sess:
-
-            init_op = tf.initialize_all_variables()
-            sess.run(init_op)
-            coord = tf.train.Coordinator()
-            threads = tf.train.start_queue_runners(coord=coord)
-            #for i in range(1000):
-            example, l = sess.run([image, label])
-            #    print (example,l)
-            coord.request_stop()
-            coord.join(threads)
-
-        return sess.run(self.s_train, self.t_train)
-
+    def getTrainBatch(self):
+        return self.test
     # Functions below modified from here https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/how_tos/reading_data/fully_connected_reader.py
     def read_and_decode(self, filename_queue, hparams):
       reader = tf.TFRecordReader()
@@ -153,7 +139,7 @@ class Data(object):
       return search, template
 
 
-    def inputs(self, train, hparams):
+    def inputs(self, train, hparams, num_epochs=None):
       """Reads input data num_epochs times.
       Args:
         train: Selects between the training (True) and validation (False) data.
@@ -163,16 +149,17 @@ class Data(object):
       Returns:
         A tuple (images, labels), where:
         * images is a float tensor with shape [batch_size, mnist.IMAGE_PIXELS]
-          in the range [-0.5, 0.5].
+          in the range [0, 1].
         * labels is an int32 tensor with shape [batch_size] with the true label,
           a number in the range [0, mnist.NUM_CLASSES).
         Note that an tf.train.QueueRunner is added to the graph, which
         must be run using e.g. tf.train.start_queue_runners().
       """
+
       filename = os.path.join(hparams.data_dir,
                               TRAIN_FILE if train else VALIDATION_FILE)
 
-      with tf.name_scope('input'):
+      with tf.name_scope('input_provider'):
         filename_queue = tf.train.string_input_producer(
             [filename], num_epochs=1)
 
@@ -183,9 +170,10 @@ class Data(object):
         # Shuffle the examples and collect them into batch_size batches.
         # (Internally uses a RandomShuffleQueue.)
         # We run this in two threads to avoid being a bottleneck.
+
         search_images, template_images = tf.train.shuffle_batch(
             [search, template], batch_size=hparams.batch_size, num_threads=2,
-            capacity=1000 + 3 * hparams.batch_size,
+            capacity=1000 * hparams.batch_size,
             # Ensures a minimum amount of shuffling of examples.
             min_after_dequeue=1000)
 

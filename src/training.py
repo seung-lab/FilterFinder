@@ -17,10 +17,7 @@ def train(model, hparams, data):
     a = time.time()
     try:
         for i in range(hparams.steps):
-            a1 = time.time()
             search_space, template = model.sess.run([data.s_train, data.t_train])
-            a2 = time.time()
-            print("Get Batch Time: ", a2-a1)
 
             #Train step data
             b1 = time.time()
@@ -41,20 +38,15 @@ def train(model, hparams, data):
 
 
             step = model.sess.run(model_run, feed_dict=feed_dict, run_metadata=run_metadata )
-            b2 = time.time()
-            print("Train time: ", b2-b1)
 
-            d1 = time.time()
             model.train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
             model.train_writer.add_summary(step[-1], i)
 
             loss[i] = np.absolute(step[1])
             p_max_c1[i] = step[2]
             p_max_c2[i] = step[3]
-            d2 = time.time()
-            print("Log time: ", d2-d1)
             #Evaluate
-            c1 = time.time()
+
             if i%hparams.epoch_size==0:
                 b = time.time()
                 j = i/hparams.epoch_size
@@ -62,8 +54,6 @@ def train(model, hparams, data):
                 print ("step: %g, train: %g, test: %g, time %g"%(i,loss[i], error[i/hparams.epoch_size], b-a))
                 save_path = model.saver.save(model.sess, hparams.model_dir+"model_"+model.id+".ckpt")
                 a = time.time()
-            c2 = time.time()
-            print("Test time: ", c2-c1)
     finally:
         model.train_writer.close()
         model.test_writer.close()
@@ -78,18 +68,13 @@ def test(model, hparams, data, iteration):
 
     sum_dist, sum_p1, sum_p2  = (0, 0, 0)
 
-    pathset = [ (120,9900, 11000), (20, 9900, 11000),
-                (60, 16000, 17000),(70, 16000, 17000),
-                (400, 8500, 27000),(400, 7000, 27000),
-                (300, 7000, 21500),(151, 4500, 5000),
-                (51, 18000, 9500), (52, 18000, 7500),
-                (55, 18000, 7500), (60, 18100, 8400)]
-
-    steps = len(pathset)/hparams.batch_size
+    steps = len(hparams.pathset)/hparams.batch_size
 
     with tf.name_scope('Testing'):
         for i in range(steps):
-            t, s = data.getBatch(hparams, pathset[i*hparams.batch_size:i*hparams.batch_size+hparams.batch_size])
+            #s, t = model.sess.run([data.s_test, data.t_test])
+            t, s =  data.getTrainBatch()
+
             model_run =[model.merged,
                         model.l,
                         model.p_max,
@@ -110,7 +95,7 @@ def evaluate(deterministic, source_shape, template_shape, aligned=True, pos=(123
     if aligned:
         t,s = data.getAlignedSample(template_shape, source_shape, test_set, deterministic)
     else:
-        t,s = data/getSample(template_shape, source_shape, hparams.resize, metadata, deterministic, pos)
+        t,s = data.getSample(template_shape, source_shape, hparams.resize, metadata, deterministic, pos)
     norm, filt, s_f, t_f, P_1, P_2 = sess.run([p, kernel, source_alpha, template_alpha, p_max, p_max_2], feed_dict={image: s, temp: t, drop: 1})
     #print(norm)
     print(s_f)

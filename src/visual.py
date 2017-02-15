@@ -1,3 +1,9 @@
+import numpy as np
+import tensorflow as tf
+import h5py
+from scipy.misc import imresize
+
+
 #Graphical
 def show(img):
     fig = plt.figure()

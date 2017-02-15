@@ -28,7 +28,7 @@ tf.flags.DEFINE_string("model_dir", "/FilterFinder/model/", "Path to model files
 tf.flags.DEFINE_string("data_dir", "/FilterFinder/data/prepared", "Path to prepared data")
 
 # Training Parameters
-tf.flags.DEFINE_float("learning_rate", 0.0001, "Learning rate")
+tf.flags.DEFINE_float("learning_rate", 0.01, "Learning rate")
 tf.flags.DEFINE_float("momentum", 0.5, "Learning momentum")
 tf.flags.DEFINE_integer("steps", 1000, "Number of steps to complete the training")
 tf.flags.DEFINE_integer("batch_size", 8, "Batch size during training")
@@ -44,6 +44,12 @@ kernel_shape =  np.array([  [16,16,1,8],
                             #[3,3,7,1],
                             #[16,16]
                             ])
+pathset = [ (120,9900, 11000), (20, 9900, 11000),
+            (60, 16000, 17000),(70, 16000, 17000),
+            (400, 8500, 27000),(400, 7000, 27000),
+            (300, 7000, 21500),(151, 4500, 5000),
+            (51, 18000, 9500), (52, 18000, 7500),
+            (55, 18000, 7500), (60, 18100, 8400)]
 
 FLAGS = tf.flags.FLAGS
 
@@ -74,6 +80,7 @@ HParams = namedtuple(
     "loglevel",
     "softmax",
     "kernel_shape",
+    "pathset",
     "model_dir",
     "eps",
     "mean_over_batch",
@@ -105,6 +112,7 @@ def create_hparams():
     loglevel = FLAGS.loglevel,
     softmax = FLAGS.softmax,
     kernel_shape = kernel_shape,
+    pathset = pathset,
     model_dir = FLAGS.model_dir,
     loging_dir= FLAGS.loging_dir,
     eps = FLAGS.eps,

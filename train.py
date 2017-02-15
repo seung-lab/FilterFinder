@@ -24,7 +24,6 @@ def main(unusedargs):
 
   print("Loading the data model...")
   data = d.Data(hparams)
-
   print("Starting to trian...")
   model = models.create_model(hparams, data, train= True)
   training.train(model, hparams, data)

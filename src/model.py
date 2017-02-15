@@ -36,8 +36,8 @@ def model(g, hparams):
             g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
             g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
 
-        metrics.image_summary(g.source_alpha[-1], '/search_space')
-        metrics.image_summary(g.template_alpha[-1], '/template')
+        metrics.image_summary(g.source_alpha[-1], 'search_space')
+        metrics.image_summary(g.template_alpha[-1], 'template')
 
     # Final Layer
     #g.bias.append(helpers.bias_variable(hparams.identity_init))
@@ -56,15 +56,18 @@ class Graph(object):
 
 def create_model(hparams, data, train = True):
     g = Graph()
-    g.sess = tf.Session()
+    if train:
+        g.sess = tf.Session()
+    else:
+        g.sess = tf.InteractiveSession()
 
     # Write normalised cross-correlation and loss function
     with tf.variable_scope('input'):
-        if train:
-            g.image, g.template = data.inputs(train, hparams)
-        else:
-            g.image = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.source_width, hparams.source_width])
-            g.template = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.template_width, hparams.template_width])
+        #if train:
+        #    g.image, g.template = data.inputs(train, hparams)
+        #else:
+        g.image = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.source_width, hparams.source_width])
+        g.template = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.template_width, hparams.template_width])
         g.dropout = tf.placeholder(tf.float32)
 
         # Add to metrics
@@ -91,12 +94,11 @@ def create_model(hparams, data, train = True):
     g.train_writer = tf.summary.FileWriter(logdir + 'train', g.sess.graph)
     g.test_writer = tf.summary.FileWriter(logdir + 'test')
 
-    g.coord = tf.train.Coordinator()
-    g.threads = tf.train.start_queue_runners(sess=g.sess, coord=g.coord)
-
-    init_op = tf.group(tf.initialize_all_variables(), tf.initialize_local_variables())
+    init_op = tf.group(tf.global_variables_initializer(), tf.local_variables_initializer())
     g.sess.run(init_op)
 
+    g.coord = tf.train.Coordinator()
+    g.threads = tf.train.start_queue_runners(sess=g.sess, coord=g.coord)
 
 
     return g

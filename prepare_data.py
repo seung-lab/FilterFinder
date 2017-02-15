@@ -51,6 +51,8 @@ def convert_to(data, hparams, num_examples, name):
   writer = tf.python_io.TFRecordWriter(filename)
 
   for index in range(num_examples):
+    if index%20 == 0:
+        print(str(100*index/float(num_examples))+"%")
     #Get images
     t, s = data.getSample([t_rows, t_rows], [s_rows, s_rows], hparams.resize, data.metadata)
     search_raw = s.tostring()
@@ -70,9 +72,9 @@ def main(unused_argv):
   data = d.Data(hparams, prepare = True )
 
   # Convert to Examples and write the result to TFRecords.
-  convert_to(data, hparams, hparams.batch_size*10, 'train')
-  convert_to(data, hparams, hparams.batch_size, 'validation')
-  convert_to(data, hparams, hparams.batch_size, 'test')
+  convert_to(data, hparams, hparams.batch_size*1000, 'train')
+  convert_to(data, hparams, hparams.batch_size*100, 'validation')
+  convert_to(data, hparams, hparams.batch_size*100, 'test')
 
 
 if __name__ == '__main__':
