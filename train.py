@@ -21,9 +21,12 @@ tf.logging.set_verbosity(hyperparams.FLAGS.loglevel)
 
 def main(unusedargs):
   hparams = hyperparams.create_hparams()
+
+  print("Loading the data model...")
   data = d.Data(hparams)
 
-  model = models.create_model(hparams)
+  print("Starting to trian...")
+  model = models.create_model(hparams, data, train= True)
   training.train(model, hparams, data)
 
 

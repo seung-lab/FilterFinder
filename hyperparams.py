@@ -5,14 +5,15 @@ from collections import namedtuple
 # Model Parameters
 tf.flags.DEFINE_integer("source_width", 512, "The width of source image")
 tf.flags.DEFINE_integer("template_width", 224, "The width of template image")
-tf.flags.DEFINE_integer("identity_init", 0, "Initialize as Identity")
+tf.flags.DEFINE_boolean("identity_init", False, "Initialize as Identity")
 tf.flags.DEFINE_integer("resize", 3, "Resize Images")
 tf.flags.DEFINE_integer("dropout", 1, "Global probability for dropout")
 tf.flags.DEFINE_integer("dialation_rate", 2, "Global dilation rate ")
 tf.flags.DEFINE_integer("aligned", 0, "Define the data type")
 
 # Loss Parameters
-tf.flags.DEFINE_integer("radius", 20, "Maximum radius for finding second")
+tf.flags.DEFINE_integer("radius", 10, "Maximum radius for finding second")
+tf.flags.DEFINE_boolean("mean_over_batch", True, "Take the mean over the batch otherwise min")
 tf.flags.DEFINE_float("lambd", -0.5, "Lambda for mixed loss")
 tf.flags.DEFINE_float("eps", 0.001, "small number")
 tf.flags.DEFINE_string("loss_type", "dist", "Define the loss format Could be dist, ratio, dist_ratio, inv_dist")
@@ -24,18 +25,19 @@ tf.flags.DEFINE_string("metadata_dir", "/FilterFinder/data/prealigned/registry.t
 tf.flags.DEFINE_string("prealigned_dir", "/FilterFinder/data/prealigned/", "Path to prealigned data")
 tf.flags.DEFINE_string("aligned_dir", "/FilterFinder/data/aligned/pinky_aligned_11184-11695_25018-25529_1-260.h5", "Path to aligned fie")
 tf.flags.DEFINE_string("model_dir", "/FilterFinder/model/", "Path to model files")
+tf.flags.DEFINE_string("data_dir", "/FilterFinder/data/prepared", "Path to prepared data")
 
 # Training Parameters
-tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate")
+tf.flags.DEFINE_float("learning_rate", 0.0001, "Learning rate")
 tf.flags.DEFINE_float("momentum", 0.5, "Learning momentum")
 tf.flags.DEFINE_integer("steps", 1000, "Number of steps to complete the training")
 tf.flags.DEFINE_integer("batch_size", 8, "Batch size during training")
 tf.flags.DEFINE_integer("epoch_size", 16, "Epoch size during training")
-tf.flags.DEFINE_integer("eval_batch_size", 16, "Batch size during evaluation")
+tf.flags.DEFINE_integer("eval_batch_size", 2, "Batch size during evaluation")
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer Name (Adam, Adagrad, etc)")
 tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 
-kernel_shape =  np.array([  [5,5,1,8],
+kernel_shape =  np.array([  [16,16,1,8],
                             [3,3,8,1],
                             #[2,2,48,96],
                             #[3,3,96,7],
@@ -73,7 +75,9 @@ HParams = namedtuple(
     "softmax",
     "kernel_shape",
     "model_dir",
-    "eps"
+    "eps",
+    "mean_over_batch",
+    "data_dir",
   ])
 
 def create_hparams():
@@ -103,5 +107,7 @@ def create_hparams():
     kernel_shape = kernel_shape,
     model_dir = FLAGS.model_dir,
     loging_dir= FLAGS.loging_dir,
-    eps = FLAGS.eps
+    eps = FLAGS.eps,
+    mean_over_batch = FLAGS.mean_over_batch,
+    data_dir = FLAGS.data_dir
     )

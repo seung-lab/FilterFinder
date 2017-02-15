@@ -26,14 +26,18 @@ def weight_variable(shape, identity = False, name = 'conv'):
 def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
 
     #Dim corrections
-    if(len(x.get_shape())<4):
+    if(len(x.get_shape())==2):
         x = tf.expand_dims(x, dim=0)
-
-    if(len(x.get_shape())<4):
+        x = tf.expand_dims(x, dim=3)
+    elif(len(x.get_shape())==3 and x.get_shape()[0].value == x.get_shape()[1].value ):
+        x = tf.expand_dims(x, dim=0)
+    elif(len(x.get_shape())==3):
         x = tf.expand_dims(x, dim=3)
 
     if (len(y.get_shape())==2):
         y = tf.expand_dims(tf.expand_dims(y,  dim=2), dim=3)
+    elif(len(y.get_shape())==3):
+        y = tf.expand_dims(y, dim=2)
 
     y = tf.to_float(y, name='ToFloat')
     if rate>1:
@@ -45,7 +49,7 @@ def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
 def softmax2d(image):
     # ASSERT:  if 0 is softmax 0 under all conditions
     shape = tuple(image.get_shape().as_list())
-    image = tf.reshape(image, [shape[0]*shape[1]], name=None)
+    image = tf.reshape(image, [-1, shape[0]*shape[1]], name=None)
     soft_1D = tf.nn.softmax(image)
     soft_image = tf.reshape(soft_1D, shape, name=None)
     return soft_image
@@ -56,18 +60,22 @@ def fftconvolve2d(x, y, padding="VALID"):
     x and y must be real 2-d tensors.
 
     mode must be "SAME" or "VALID".
+    Input is x=[batch, width, height] and kernel is [batch, width, height]
 
     need to add custom striding
     """
-    #Read shapes
-    x_shape = tuple(x.get_shape().as_list())
-    y_shape = tuple(y.get_shape().as_list())
+    # Read shapes
+    x_shape = np.array(tuple(x.get_shape().as_list()), dtype=np.int32)
+    y_shape = np.array(tuple(y.get_shape().as_list()), dtype=np.int32)
 
-    #Construct paddings and pad
-    x_shape = np.array(x_shape)[0:2]-1
-    y_pad =  [[0, x_shape[0]],[0, x_shape[1]]]
-    y_shape = np.array(y_shape)[0:2]-1
-    x_pad = [[0, y_shape[0]],[0, y_shape[1]]]
+    # Check if they are 2D add one artificial batch layer
+    # Do the same for kernel seperately
+
+    # Construct paddings and pad
+    x_shape[1:3] = x_shape[1:3]-1
+    y_pad =  [[0,0], [0, x_shape[1]],[0, x_shape[2]]]
+    y_shape[1:3] = y_shape[1:3]-1
+    x_pad = [[0,0], [0, y_shape[1]],[0, y_shape[2]]]
 
     x = tf.pad(x, x_pad)
     y = tf.pad(y, y_pad)
@@ -88,12 +96,12 @@ def fftconvolve2d(x, y, padding="VALID"):
 
     #Slice correctly based on requirements
     if padding == 'VALID':
-        begin = [y_shape[0], y_shape[1]]
-        size  = [x_shape[0]-y_shape[0], x_shape[1]-y_shape[0]]
+        begin = [0, y_shape[1], y_shape[2]]
+        size  = [x_shape[0], x_shape[1]-y_shape[1], x_shape[2]-y_shape[1]]
 
     if padding == 'SAME':
-        begin = [y_shape[0]/2-1, y_shape[1]/2-1]
-        size  = [x_shape[0], x_shape[1]]
+        begin = [0, y_shape[1]/2-1, y_shape[2]/2-1]
+        size  = x_shape #[-1, x_shape[0], x_shape[1]]
 
     z = tf.slice(z, begin, size)
     return z
@@ -101,16 +109,18 @@ def fftconvolve2d(x, y, padding="VALID"):
 def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01):
 
     #normalize and get variance
-    dt = template - tf.reduce_mean(template)
-    templatevariance = tf.reduce_sum(tf.square(dt))
+    dt = template - tf.reduce_mean(template, axis = [1,2], keep_dims = True)
+    templatevariance = tf.reduce_sum(tf.square(dt), axis = [1,2], keep_dims = True)
 
     t1 = tf.ones(tf.shape(dt))
-    tr = tf.reverse(dt, [0, 1])
-    numerator = fftconvolve2d(img, tr, padding=padding) #tf.nn.conv2d (img, tr, strides=strides, padding=padding)
+    tr = tf.reverse(dt, [1, 2])
+    numerator = fftconvolve2d(img, tr, padding=padding)
 
     localsum2 = fftconvolve2d(tf.square(img), t1, padding=padding)
     localsum = fftconvolve2d(img, t1, padding=padding)
-    localvariance = localsum2-tf.square(localsum)/tf.reduce_prod(tf.to_float(tf.shape(template)))
+
+    shape = template.get_shape()[1].value*template.get_shape()[2].value
+    localvariance = localsum2-tf.square(localsum)/shape
     denominator = tf.sqrt(localvariance*templatevariance)
 
     #zero housekeeping

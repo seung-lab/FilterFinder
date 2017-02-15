@@ -3,9 +3,6 @@ import tensorflow as tf
 import time
 
 def train(model, hparams, data):
-    # Set shapes
-    source_shape = [hparams.source_width, hparams.source_width]
-    template_shape = [hparams.template_width, hparams.template_width]
 
     # Init
     loss = np.zeros(hparams.steps)
@@ -18,67 +15,68 @@ def train(model, hparams, data):
 
     # Get initial data and run through the graph
     a = time.time()
+    try:
+        for i in range(hparams.steps):
+            a1 = time.time()
+            search_space, template = model.sess.run([data.s_train, data.t_train])
+            a2 = time.time()
+            print("Get Batch Time: ", a2-a1)
 
-    for i in range(hparams.steps):
+            #Train step data
+            b1 = time.time()
+            run_metadata = tf.RunMetadata()
+            model_run =[model.train_step,
+                        model.l,
+                        model.p_max,
+                        model.p_max_2,
+                        model.p,
+                        model.kernel_conv[0],
+                        model.source_alpha,
+                        model.template_alpha,
+                        model.merged]
 
-        #Check id data is aligned
-        if hparams.aligned:
-            template, search_space = data.getAlignedSample(template_shape, source_shape, train_set)
-        else:
-            template, search_space = data.getSample(template_shape, source_shape, hparams.resize, data.metadata)
+            feed_dict ={model.image: search_space,
+                        model.template: template,
+                        model.dropout: hparams.dropout}
 
-        #Train step data
-        run_metadata = tf.RunMetadata()
-        model_run =[model.train_step,
-                    model.l,
-                    model.p_max,
-                    model.p_max_2,
-                    model.p,
-                    model.kernel_conv[0],
-                    model.source_alpha,
-                    model.template_alpha,
-                    model.merged]
 
-        feed_dict ={model.image: search_space,
-                    model.template: template,
-                    model.dropout:
-                    hparams.dropout}
+            step = model.sess.run(model_run, feed_dict=feed_dict, run_metadata=run_metadata )
+            b2 = time.time()
+            print("Train time: ", b2-b1)
 
-        #_, ls, p_max_c, p_max_c_2, norm, filt, s_f, t_f, summary
-        step = model.sess.run(model_run, feed_dict=feed_dict, run_metadata=run_metadata )
+            d1 = time.time()
+            model.train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
+            model.train_writer.add_summary(step[-1], i)
 
-        model.train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
-        model.train_writer.add_summary(step[-1], i)
-
-        loss[i] = np.absolute(step[1])
-        p_max_c1[i] = step[2]
-        p_max_c2[i] = step[3]
-
-        #Evaluate
-        if i%hparams.epoch_size==0:
-            b = time.time()
-            j = i/hparams.epoch_size
-            error[j], er_p_max_c1[j], er_p_max_c2[j] = test(model,hparams, data, i)
-            print ("step: %g, train: %g, test: %g, time %g"%(i,loss[i], error[i/hparams.epoch_size], b-a))
-            save_path = model.saver.save(model.sess, hparams.model_dir+"model_"+model.id+".ckpt")
-            a = time.time()
-
-    showMultiLoss(loss, p_max_c1, p_max_c2, 100)
-    showMultiLoss(error, er_p_max_c1, er_p_max_c2, 20)
-
-    model.train_writer.close()
-    model.test_writer.close()
+            loss[i] = np.absolute(step[1])
+            p_max_c1[i] = step[2]
+            p_max_c2[i] = step[3]
+            d2 = time.time()
+            print("Log time: ", d2-d1)
+            #Evaluate
+            c1 = time.time()
+            if i%hparams.epoch_size==0:
+                b = time.time()
+                j = i/hparams.epoch_size
+                error[j], er_p_max_c1[j], er_p_max_c2[j] = test(model,hparams, data, i)
+                print ("step: %g, train: %g, test: %g, time %g"%(i,loss[i], error[i/hparams.epoch_size], b-a))
+                save_path = model.saver.save(model.sess, hparams.model_dir+"model_"+model.id+".ckpt")
+                a = time.time()
+            c2 = time.time()
+            print("Test time: ", c2-c1)
+    finally:
+        model.train_writer.close()
+        model.test_writer.close()
+        model.coord.request_stop()
+        model.coord.join(model.threads)
+        model.sess.close()
+        print("Nicely Shutting down")
 
     return loss
 
 def test(model, hparams, data, iteration):
 
     sum_dist, sum_p1, sum_p2  = (0, 0, 0)
-
-    source_shape = [hparams.source_width, hparams.source_width]
-    template_shape = [hparams.template_width, hparams.template_width]
-
-    steps = hparams.eval_batch_size
 
     pathset = [ (120,9900, 11000), (20, 9900, 11000),
                 (60, 16000, 17000),(70, 16000, 17000),
@@ -87,20 +85,18 @@ def test(model, hparams, data, iteration):
                 (51, 18000, 9500), (52, 18000, 7500),
                 (55, 18000, 7500), (60, 18100, 8400)]
 
-    if ~hparams.aligned:
-        steps = len(pathset)
+    steps = len(pathset)/hparams.batch_size
 
     with tf.name_scope('Testing'):
         for i in range(steps):
-            if hparams.aligned:
-                t,s = data.getAlignedSample(template_shape, source_shape, test_set, i)
-            else:
-                t,s = data.getSample(template_shape, source_shape, hparams.resize, data.metadata, pathset[i][0], pathset[0][1:3])
+            t, s = data.getBatch(hparams, pathset[i*hparams.batch_size:i*hparams.batch_size+hparams.batch_size])
+            model_run =[model.merged,
+                        model.l,
+                        model.p_max,
+                        model.p_max_2]
+            feed_dict ={model.image: s, model.template: t, model.dropout: 1}
 
-            summary, ls, p_1, p_2 = model.sess.run([model.merged, model.l, model.p_max, model.p_max_2],
-                                                    feed_dict={model.image: s, model.template: t, model.dropout: 1})
-            #tf.summary.image('test '+str(i), p, 1)
-
+            summary, ls, p_1, p_2 = model.sess.run(model_run,feed_dict=feed_dict)
             sum_dist = sum_dist + np.absolute(p_1-p_2)
             sum_p1 = sum_p1 + p_1
             sum_p2 = sum_p2 + p_2

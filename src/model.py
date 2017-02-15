@@ -2,10 +2,12 @@ import tensorflow as tf
 import sys
 import helpers
 import loss
+import metrics
 from datetime import datetime
 
 # import normxcorr2FFT, fftconvolve, bias, weights, loss
 def model(g, hparams):
+
     # Init Convolution Weights
     g.source_alpha = [g.image]
     g.template_alpha = [g.template]
@@ -13,21 +15,29 @@ def model(g, hparams):
     # Multilayer convnet
     g.kernel_conv = []
     g.bias = []
+
     n = hparams.kernel_shape.shape[0]
-    for i in range(n):
-        # Set variables
-        g.bias.append(helpers.bias_variable(hparams.identity_init, name='bias_layer'+str(i)))
-        g.kernel_conv.append(helpers.weight_variable(hparams.kernel_shape[i], hparams.identity_init, name='conv_layer'+str(i)))
+    # Setup Weights
+    with tf.variable_scope('Filters'):
+        for i in range(n):
+            # Set variables
+            g.bias.append(helpers.bias_variable(hparams.identity_init, name='bias_layer_'+str(i)))
+            g.kernel_conv.append(helpers.weight_variable(hparams.kernel_shape[i], hparams.identity_init, name='layer_'+str(i)))
 
-        g.source_alpha.append(helpers.convolve2d(g.source_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
-        g.source_alpha[i+1] = tf.nn.sigmoid(g.source_alpha[i+1])+g.bias[i]
+    with tf.variable_scope('Passes'):
+        for i in range(n):
+            g.source_alpha.append(helpers.convolve2d(g.source_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
+            g.source_alpha[i+1] = tf.nn.sigmoid(g.source_alpha[i+1])+g.bias[i]
 
-        g.template_alpha.append(helpers.convolve2d(g.template_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
-        g.template_alpha[i+1] = tf.nn.sigmoid(g.template_alpha[i+1])+g.bias[i]
+            g.template_alpha.append(helpers.convolve2d(g.template_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
+            g.template_alpha[i+1] = tf.nn.sigmoid(g.template_alpha[i+1])+g.bias[i]
 
-        # Dropout Layer
-        g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
-        g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
+            # Dropout Layer
+            g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
+            g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
+
+        metrics.image_summary(g.source_alpha[-1], '/search_space')
+        metrics.image_summary(g.template_alpha[-1], '/template')
 
     # Final Layer
     #g.bias.append(helpers.bias_variable(hparams.identity_init))
@@ -44,23 +54,31 @@ def model(g, hparams):
 class Graph(object):
     pass
 
-def create_model(hparams):
+def create_model(hparams, data, train = True):
     g = Graph()
     g.sess = tf.Session()
 
     # Write normalised cross-correlation and loss function
-    g.image = tf.placeholder(tf.float32, shape=[hparams.source_width, hparams.source_width])
-    g.template = tf.placeholder(tf.float32, shape=[hparams.template_width, hparams.template_width])
-    g.dropout = tf.placeholder(tf.float32)
+    with tf.variable_scope('input'):
+        if train:
+            g.image, g.template = data.inputs(train, hparams)
+        else:
+            g.image = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.source_width, hparams.source_width])
+            g.template = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.template_width, hparams.template_width])
+        g.dropout = tf.placeholder(tf.float32)
 
-    g.source_alpha = tf.placeholder(tf.float32, shape=[hparams.source_width, hparams.source_width])
-    g.template_alpha = tf.placeholder(tf.float32, shape=[hparams.template_width, hparams.template_width])
+        # Add to metrics
+        metrics.image_summary(g.image, 'search_space')
+        metrics.image_summary(g.template, 'template_space')
 
     # Build the model
     g = model(g, hparams)
 
     # Setup the loss
-    g.p = helpers.normxcorr2FFT(g.source_alpha[-1], g.template_alpha[-1]) #get last convolved images
+    with tf.variable_scope('normxcor'):
+        g.p = helpers.normxcorr2FFT(g.source_alpha[-1], g.template_alpha[-1]) #get last convolved images
+        metrics.image_summary(g.p, 'template_space')
+
     g = loss.loss(g, hparams)
     g.train_step = tf.train.MomentumOptimizer(learning_rate=hparams.learning_rate, momentum = hparams.momentum).minimize(g.l)
 
@@ -72,6 +90,13 @@ def create_model(hparams):
     logdir = hparams.loging_dir + g.id + "/"
     g.train_writer = tf.summary.FileWriter(logdir + 'train', g.sess.graph)
     g.test_writer = tf.summary.FileWriter(logdir + 'test')
-    g.sess.run(tf.global_variables_initializer())
+
+    g.coord = tf.train.Coordinator()
+    g.threads = tf.train.start_queue_runners(sess=g.sess, coord=g.coord)
+
+    init_op = tf.group(tf.initialize_all_variables(), tf.initialize_local_variables())
+    g.sess.run(init_op)
+
+
 
     return g

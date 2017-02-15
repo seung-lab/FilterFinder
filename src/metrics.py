@@ -14,16 +14,23 @@ def variable_summaries(var):
         tf.summary.histogram('histogram', var)
 
 
-def kernel_summary(var, name= 'conv'):
-    with tf.variable_scope(name):
-        #tf.get_variable_scope().reuse_variables()
-        grid = put_kernels_on_grid (var)
+def kernel_summary(var, name='conv'):
+    #tf.get_variable_scope().reuse_variables()
+    grid = put_kernels_on_grid (var)
+    tf.summary.image(name, grid)
 
-        tf.summary.image(name+'/features', grid)
+def image_summary(var, name='image'):
+    ''' var expected to be [batch_size, width, height]'''
+
+    images = tf.expand_dims(var, dim=3)
+    images = tf.image.resize_images(images, [128,128])
+    images = tf.transpose(images, [1,2,3,0])
+    grid = put_kernels_on_grid(images)
+    tf.summary.image(name, grid)
 
 # source from  https://gist.github.com/kukuruza/03731dc494603ceab0c5
 def put_kernels_on_grid (kernel, pad = 1):
-    
+
     '''Visualize conv. features as an image (mostly for the 1st layer).
     Place kernel into a grid, with some paddings between adjacent filters.
 
@@ -35,6 +42,10 @@ def put_kernels_on_grid (kernel, pad = 1):
     Return:
       Tensor of shape [(Y+2*pad)*grid_Y, (X+2*pad)*grid_X, NumChannels, 1].
     '''
+    shape = tuple(kernel.get_shape().as_list())
+    kernel = tf.reshape(kernel, [shape[0], shape[1], shape[2]*shape[3]])
+    kernel = tf.expand_dims(kernel, dim=2)
+
     def factorization(n):
         for i in range(int(sqrt(float(n))), 0, -1):
             if n % i == 0:
