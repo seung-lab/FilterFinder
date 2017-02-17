@@ -2,7 +2,10 @@ import numpy as np
 import tensorflow as tf
 import h5py
 from scipy.misc import imresize
+import matplotlib.pyplot as plt
 
+def prints():
+    print("hello")
 
 #Graphical
 def show(img):

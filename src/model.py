@@ -88,8 +88,12 @@ def create_model(hparams, data, train = True):
     g.merged = tf.summary.merge_all()
     g.saver = tf.train.Saver()
 
-    now = datetime.now()
-    g.id = now.strftime("%Y%m%d-%H%M%S")
+    if hparams.exp_name is None:
+        now = datetime.now()
+        g.id = now.strftime("%Y%m%d-%H%M%S")
+    else:
+        g.id = hparams.exp_name
+
     logdir = hparams.loging_dir + g.id + "/"
     g.train_writer = tf.summary.FileWriter(logdir + 'train', g.sess.graph)
     g.test_writer = tf.summary.FileWriter(logdir + 'test')
@@ -100,5 +104,9 @@ def create_model(hparams, data, train = True):
     g.coord = tf.train.Coordinator()
     g.threads = tf.train.start_queue_runners(sess=g.sess, coord=g.coord)
 
+    if train==False:
+        ckpt = tf.train.get_checkpoint_state(hparams.model_dir)
+        if ckpt and ckpt.model_checkpoint_path:
+            g.saver.restore(g.sess, ckpt.model_checkpoint_path)
 
     return g

@@ -1,6 +1,6 @@
 import tensorflow as tf
 
-def loss(g, hparams):
+def loss(g, hparams, eps = 0.001):
 
     #Get maximum p and mask the point
     g.p_max = tf.reduce_max(g.p, axis=[1,2], keep_dims=True)
@@ -28,31 +28,32 @@ def loss(g, hparams):
         #Get the second peak and return
         g.p_max_2 = tf.reduce_max(g.p_2, axis=[1,2], keep_dims=True)
 
-    g.mask_p = tf.multiply(g.mask_p,g.p)
+    g.mask_p = tf.multiply(g.mask_p, g.p)
 
     if hparams.loss_type == 'dist':
-        g.l =  -(g.p_max-g.p_max_2)
+        g.l =  (g.p_max-g.p_max_2)
 
     elif hparams.loss_type == 'ratio':
-        g.l = -g.p_max/(g.p_max_2+eps)
+        g.l = g.p_max/(g.p_max_2+eps)
 
-    elif hparams.loss_type == 'inv_dist':
-        g.l = 1/((g.p_max-g.p_max_2)+eps)
-
-    elif hparams.loss_type == 'dist_ratio':
-        g.l = hparams.lambd*g.p_max/(g.p_max_2+eps) + (g.p_max_2 - g.p_max)
+    if hparams.loss_form == 'minus':
+        g.l = -g.l
+    elif hparams.loss_form == 'inverse':
+        g.l = 1/(g.l+eps)
+    elif hparams.loss_form == 'log':
+        g.l = -tf.log(g.l)
 
     if hparams.mean_over_batch == True:
         g.l = tf.reduce_mean(g.l)
-        g.p_max = tf.reduce_mean(g.p_max)
-        g.p_max_2 = tf.reduce_mean(g.p_max_2)
     else:
         g.l = tf.reduce_min(g.l)
-        g.p_max = tf.reduce_min(g.p_max)
-        g.p_max_2 = tf.reduce_min(g.p_max_2)
+
+    g.p_max = tf.reduce_mean(g.p_max)
+    g.p_max_2 = tf.reduce_mean(g.p_max_2)
 
     with tf.name_scope('loss'):
         tf.summary.scalar('loss', g.l)
+        tf.summary.scalar('distance', g.p_max-g.p_max_2)
         tf.summary.scalar('max',  g.p_max)
         tf.summary.scalar('second_max',  g.p_max_2)
 

@@ -20,7 +20,6 @@ def train(model, hparams, data):
             search_space, template = model.sess.run([data.s_train, data.t_train])
 
             #Train step data
-            b1 = time.time()
             run_metadata = tf.RunMetadata()
             model_run =[model.train_step,
                         model.l,
@@ -45,16 +44,21 @@ def train(model, hparams, data):
             loss[i] = np.absolute(step[1])
             p_max_c1[i] = step[2]
             p_max_c2[i] = step[3]
-            #Evaluate
 
+            #Evaluate
             if i%hparams.epoch_size==0:
                 b = time.time()
                 j = i/hparams.epoch_size
                 error[j], er_p_max_c1[j], er_p_max_c2[j] = test(model,hparams, data, i)
                 print ("step: %g, train: %g, test: %g, time %g"%(i,loss[i], error[i/hparams.epoch_size], b-a))
-                save_path = model.saver.save(model.sess, hparams.model_dir+"model_"+model.id+".ckpt")
                 a = time.time()
+                if error[j]==0:
+                    raise ValueError('finished')
+
+    except:
+        pass
     finally:
+        save_path = model.saver.save(model.sess, hparams.model_dir+"model_"+model.id+".ckpt")
         model.train_writer.close()
         model.test_writer.close()
         model.coord.request_stop()

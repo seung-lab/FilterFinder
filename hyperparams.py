@@ -3,6 +3,7 @@ import numpy as np
 from collections import namedtuple
 
 # Model Parameters
+tf.flags.DEFINE_string("exp_name", None, "Name of the run")
 tf.flags.DEFINE_integer("source_width", 512, "The width of source image")
 tf.flags.DEFINE_integer("template_width", 224, "The width of template image")
 tf.flags.DEFINE_boolean("identity_init", False, "Initialize as Identity")
@@ -16,7 +17,8 @@ tf.flags.DEFINE_integer("radius", 10, "Maximum radius for finding second")
 tf.flags.DEFINE_boolean("mean_over_batch", True, "Take the mean over the batch otherwise min")
 tf.flags.DEFINE_float("lambd", -0.5, "Lambda for mixed loss")
 tf.flags.DEFINE_float("eps", 0.001, "small number")
-tf.flags.DEFINE_string("loss_type", "dist", "Define the loss format Could be dist, ratio, dist_ratio, inv_dist")
+tf.flags.DEFINE_string("loss_type", "dist", "Define the loss format either 'dist' or 'ratio' ")
+tf.flags.DEFINE_string("loss_form", "log", "Define the loss formulae to minimize over {'minus', 'inverse', 'log'}")
 tf.flags.DEFINE_boolean("softmax", False, "Use Softmax")
 
 # Data paths
@@ -37,9 +39,9 @@ tf.flags.DEFINE_integer("eval_batch_size", 2, "Batch size during evaluation")
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer Name (Adam, Adagrad, etc)")
 tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 
-kernel_shape =  np.array([  [16,16,1,8],
-                            [3,3,8,1],
-                            #[2,2,48,96],
+kernel_shape =  np.array([  [32,32,1,1],
+                            #[5,5,3,1],
+                            #[3,3,8,1],
                             #[3,3,96,7],
                             #[3,3,7,1],
                             #[16,16]
@@ -56,6 +58,7 @@ FLAGS = tf.flags.FLAGS
 HParams = namedtuple(
   "HParams",
   [
+    "exp_name",
     "source_width",
     "template_width",
     "identity_init",
@@ -66,6 +69,7 @@ HParams = namedtuple(
     "radius",
     "lambd",
     "loss_type",
+    "loss_form",
     "loging_dir",
     "metadata_dir",
     "prealigned_dir",
@@ -89,6 +93,7 @@ HParams = namedtuple(
 
 def create_hparams():
   return HParams(
+    exp_name = FLAGS.exp_name,
     source_width = FLAGS.source_width,
     template_width = FLAGS.template_width,
     identity_init = FLAGS.identity_init,
@@ -99,6 +104,7 @@ def create_hparams():
     radius = FLAGS.radius,
     lambd = FLAGS.lambd,
     loss_type =  FLAGS.loss_type,
+    loss_form =  FLAGS.loss_form,
     metadata_dir = FLAGS.metadata_dir,
     prealigned_dir = FLAGS.prealigned_dir,
     aligned_dir = FLAGS.aligned_dir,
