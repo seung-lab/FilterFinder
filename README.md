@@ -9,30 +9,30 @@ Clone the git
 git clone https://github.com/davidbuniat/FilterFinder.git
 ```
 
-Please customize the pathways before running the docker. 
+Please customize the pathways before running the docker.
 ```
-sudo nvidia-docker run -it --net=host 
-    -v /usr/people/__username__/seungmount/research/Alembic/datasets/piriform/3_prealigned/:/FilterFinder/data/prealigned 
-    -v /usr/people/__username__/seungmount/Omni/TracerTasks/pinky/ground_truth/vol40/:/FilterFinder/data/aligned 
-    -v ..path_to/FilterFinder:/FilterFinder 
+sudo nvidia-docker run -it --net=host
+    -v /usr/people/__username__/seungmount/research/Alembic/datasets/piriform/3_prealigned/:/FilterFinder/data/prealigned
+    -v /usr/people/__username__/seungmount/Omni/TracerTasks/pinky/ground_truth/vol40/:/FilterFinder/data/aligned
+    -v ..path_to/FilterFinder:/FilterFinder
     davidbun/workflow:latest bash
 ```
 
 Prepare
 -----------
-To prepare the data run the following command which will consume couple hours to read the data and creata the dataset for training
+To prepare the data run the following command which will consume couple hours to read the data and create the dataset for training
 ```
 python prepare_data.py
 ```
 
 Train
 -----------
-To train the model 
+To train the model
 ```
 python train.py
 ```
 
-To vizualise the training
+To visualize the training
 -----------
 ```
 Tensorboard --logdir=logs
@@ -49,5 +49,4 @@ and go to FilterFinder/notebook/eval.ipynb
 
 Notes
 -----------
-If there are some questions or smth is broken immediately contact me at davit@princeton.edu
-
+If there are some questions or something is broken contact me at davit@princeton.edu
