@@ -6,7 +6,7 @@ Setup
 
 Clone the git
 ```
-git clone https://github.com/davidbuniat/FilterFinder.git
+git clone https://github.com/seung-lab/FilterFinder.git
 ```
 
 Please customize the pathways before running the docker.
