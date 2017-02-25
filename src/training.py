@@ -38,12 +38,13 @@ def train(model, hparams, data):
 
             step = model.sess.run(model_run, feed_dict=feed_dict, run_metadata=run_metadata )
 
-            model.train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
-            model.train_writer.add_summary(step[-1], i)
-
             loss[i] = np.absolute(step[1])
             p_max_c1[i] = step[2]
             p_max_c2[i] = step[3]
+
+            if loss[i]==float('Inf') or loss[i]==float('NaN'):
+                print('Stopping because of loss is ', loss[i])
+                raise ValueError('finished')
 
             #Evaluate
             if i%hparams.epoch_size==0:
@@ -52,8 +53,14 @@ def train(model, hparams, data):
                 error[j], er_p_max_c1[j], er_p_max_c2[j] = test(model,hparams, data, i)
                 print ("step: %g, train: %g, test: %g, time %g"%(i,loss[i], error[i/hparams.epoch_size], b-a))
                 a = time.time()
-                if error[j]==0:
+
+                if loss[i]==0 and error[j]==0:
+                    print('Stopping because of test error is ', error[i])
                     raise ValueError('finished')
+
+            #Summary
+            model.train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
+            model.train_writer.add_summary(step[-1], i)
 
     except:
         pass
