@@ -46,7 +46,7 @@ def loss(g, hparams, eps = 0.001):
     if hparams.mean_over_batch == True:
         g.l = tf.reduce_mean(g.l)
     else:
-        g.l = tf.reduce_min(g.l)
+        g.l = tf.reduce_max(g.l)
 
     g.p_max = tf.reduce_mean(g.p_max)
     g.p_max_2 = tf.reduce_mean(g.p_max_2)

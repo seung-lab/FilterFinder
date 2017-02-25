@@ -4,7 +4,7 @@ import numpy as np
 
 def bias_variable(identity = False, name = 'bias'):
     if identity:
-        initial = tf.constant(0.0)
+        initial = tf.constant(-0.5)
     else:
         initial = tf.constant(-0.5)
     b = tf.Variable(initial)
@@ -18,7 +18,7 @@ def weight_variable(shape, identity = False, name = 'conv'):
         kernel_init = np.zeros(shape)
         kernel_init[kernel_shape[0]/2,shape[1]/2] = 1.0
     else:
-        kernel_init = tf.random_normal(shape, stddev=0.1)
+        kernel_init = tf.random_normal(shape, stddev=0.01)
     weight = tf.Variable(kernel_init, name=name)
     metrics.kernel_summary(weight, name)
     return weight
@@ -29,6 +29,7 @@ def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
     if(len(x.get_shape())==2):
         x = tf.expand_dims(x, dim=0)
         x = tf.expand_dims(x, dim=3)
+
     elif(len(x.get_shape())==3 and x.get_shape()[0].value == x.get_shape()[1].value ):
         x = tf.expand_dims(x, dim=0)
     elif(len(x.get_shape())==3):
@@ -131,32 +132,4 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01)
     p = tf.div(numerator,denominator)
     p = tf.where(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
 
-    return p
-
-def normxcorr2(img, template, strides=[1,1,1,1], padding='SAME', eps = 0.001):
-
-    #Do dim housekeeping
-    img = tf.expand_dims(tf.expand_dims(img, 0),3)
-    template = tf.expand_dims(tf.expand_dims(template,2),2)
-
-    #normalize and get variance
-    dt = template - tf.reduce_mean(template)
-    templatevariance = tf.reduce_sum(tf.square(dt))
-
-    t1 = tf.ones(tf.shape(dt))
-    numerator = tf.nn.conv2d (img, dt, strides=strides, padding=padding)
-
-    localsum2 = tf.nn.conv2d(tf.square(img), t1, strides=strides, padding=padding)
-    localsum = tf.nn.conv2d(img, t1, strides=strides, padding=padding)
-    localvariance = localsum2-tf.square(localsum)/tf.reduce_prod(tf.to_float(tf.shape(template)))
-    denominator = tf.sqrt(localvariance*templatevariance)
-
-    #zero housekeeping
-    numerator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
-    denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
-
-    #Compute Pearson
-    p = tf.div(numerator,denominator)
-    p = tf.where(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
-    p = tf.squeeze(p)
     return p

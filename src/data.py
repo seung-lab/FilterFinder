@@ -62,7 +62,7 @@ class Data(object):
         if np.sum(template==0)>n_temp/4 or np.sum(template>250)>n_temp/4 or np.sum(source==0)>n_sour/4 or np.sum(template>250)>n_sour/4:
             return self.getSample(template_shape, source_shape, resize, metadata, j, pos)
 
-        return template/256.0, source/256.0
+        return template/255.0, source/255.0
 
     def getAlignedData(self, train=True, test_size=60):
         with h5py.File('/FilterFinder/data/aligned/pinky_aligned_11184-11695_25018-25529_1-260.h5', 'r') as hf:
@@ -121,11 +121,11 @@ class Data(object):
       # Convert from a scalar string tensor (whose single string has
       # length mnist.IMAGE_PIXELS) to a uint8 tensor with shape
       # [mnist.IMAGE_PIXELS].
-      search = tf.decode_raw(features['search_raw'], tf.float64)
+      search = tf.decode_raw(features['search_raw'], tf.float64) # Change to tf.int8
       search.set_shape([hparams.source_width*hparams.source_width])
       search = tf.reshape(search, [hparams.source_width, hparams.source_width])
 
-      template = tf.decode_raw(features['template_raw'], tf.float64)
+      template = tf.decode_raw(features['template_raw'], tf.float64) # Change to tf.int8
       template.set_shape([hparams.template_width*hparams.template_width])
       template = tf.reshape(template, [hparams.template_width, hparams.template_width])
       # OPTIONAL: Could reshape into a 28x28 image and apply distortions

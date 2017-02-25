@@ -55,8 +55,9 @@ def convert_to(data, hparams, num_examples, name):
         print(str(100*index/float(num_examples))+"%")
     #Get images
     t, s = data.getSample([t_rows, t_rows], [s_rows, s_rows], hparams.resize, data.metadata)
-    search_raw = s.tostring()
-    temp_raw = t.tostring()
+
+    search_raw = np.asarray(s*255, dtype=np.uint8).tostring()
+    temp_raw = np.asarray(t*255, dtype=np.uint8).tostring()
 
     ex = tf.train.Example(features=tf.train.Features(feature={
         'search_raw': _bytes_feature(search_raw),
@@ -72,9 +73,9 @@ def main(unused_argv):
   data = d.Data(hparams, prepare = True )
 
   # Convert to Examples and write the result to TFRecords.
-  convert_to(data, hparams, hparams.batch_size*1000, 'train')
-  convert_to(data, hparams, hparams.batch_size*100, 'validation')
-  convert_to(data, hparams, hparams.batch_size*100, 'test')
+  convert_to(data, hparams, 64000, 'train_100K')
+  convert_to(data, hparams, 1000, 'validation_1K')
+  convert_to(data, hparams, 1000, 'test_1K')
 
 
 if __name__ == '__main__':

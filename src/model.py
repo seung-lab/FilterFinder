@@ -27,14 +27,14 @@ def model(g, hparams):
     with tf.variable_scope('Passes'):
         for i in range(n):
             g.source_alpha.append(helpers.convolve2d(g.source_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
-            g.source_alpha[i+1] = tf.nn.sigmoid(g.source_alpha[i+1])+g.bias[i]
+            g.source_alpha[i+1] = tf.tanh(g.source_alpha[i+1])#-g.bias[i]
 
             g.template_alpha.append(helpers.convolve2d(g.template_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
-            g.template_alpha[i+1] = tf.nn.sigmoid(g.template_alpha[i+1])+g.bias[i]
+            g.template_alpha[i+1] = tf.tanh(g.template_alpha[i+1])#-g.bias[i]
 
             # Dropout Layer
-            g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
-            g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
+            #g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
+            #g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
 
         metrics.image_summary(g.source_alpha[-1], 'search_space')
         metrics.image_summary(g.template_alpha[-1], 'template')
@@ -56,8 +56,10 @@ class Graph(object):
 
 def create_model(hparams, data, train = True):
     g = Graph()
+    config = tf.ConfigProto(log_device_placement = False)
+    config.gpu_options.allow_growth = True
     if train:
-        g.sess = tf.Session()
+        g.sess = tf.Session(config=config)
     else:
         g.sess = tf.InteractiveSession()
 

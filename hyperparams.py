@@ -1,7 +1,7 @@
 import tensorflow as tf
 import numpy as np
 from collections import namedtuple
-
+import json
 # Model Parameters
 tf.flags.DEFINE_string("exp_name", None, "Name of the run")
 tf.flags.DEFINE_integer("source_width", 512, "The width of source image")
@@ -9,7 +9,7 @@ tf.flags.DEFINE_integer("template_width", 224, "The width of template image")
 tf.flags.DEFINE_boolean("identity_init", False, "Initialize as Identity")
 tf.flags.DEFINE_integer("resize", 3, "Resize Images")
 tf.flags.DEFINE_integer("dropout", 1, "Global probability for dropout")
-tf.flags.DEFINE_integer("dialation_rate", 2, "Global dilation rate ")
+tf.flags.DEFINE_integer("dialation_rate", 1, "Global dilation rate ")
 tf.flags.DEFINE_integer("aligned", 0, "Define the data type")
 
 # Loss Parameters
@@ -18,7 +18,7 @@ tf.flags.DEFINE_boolean("mean_over_batch", True, "Take the mean over the batch o
 tf.flags.DEFINE_float("lambd", -0.5, "Lambda for mixed loss")
 tf.flags.DEFINE_float("eps", 0.001, "small number")
 tf.flags.DEFINE_string("loss_type", "dist", "Define the loss format either 'dist' or 'ratio' ")
-tf.flags.DEFINE_string("loss_form", "log", "Define the loss formulae to minimize over {'minus', 'inverse', 'log'}")
+tf.flags.DEFINE_string("loss_form", "minus", "Define the loss formulae to minimize over {'minus', 'inverse', 'log'}")
 tf.flags.DEFINE_boolean("softmax", False, "Use Softmax")
 
 # Data paths
@@ -30,28 +30,45 @@ tf.flags.DEFINE_string("model_dir", "/FilterFinder/model/", "Path to model files
 tf.flags.DEFINE_string("data_dir", "/FilterFinder/data/prepared", "Path to prepared data")
 
 # Training Parameters
-tf.flags.DEFINE_float("learning_rate", 0.01, "Learning rate")
+tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate")
 tf.flags.DEFINE_float("momentum", 0.5, "Learning momentum")
-tf.flags.DEFINE_integer("steps", 1000, "Number of steps to complete the training")
-tf.flags.DEFINE_integer("batch_size", 8, "Batch size during training")
+tf.flags.DEFINE_integer("steps", 400, "Number of steps to complete the training")
+tf.flags.DEFINE_integer("batch_size", 32, "Batch size during training")
 tf.flags.DEFINE_integer("epoch_size", 16, "Epoch size during training")
 tf.flags.DEFINE_integer("eval_batch_size", 2, "Batch size during evaluation")
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer Name (Adam, Adagrad, etc)")
 tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 
-kernel_shape =  np.array([  [32,32,1,1],
-                            #[5,5,3,1],
-                            #[3,3,8,1],
-                            #[3,3,96,7],
-                            #[3,3,7,1],
-                            #[16,16]
-                            ])
+kernel_shape = [[7,7,1,3],
+                [5,5,3,1],
+                #[16,16]
+                ]
+
+
 pathset = [ (120,9900, 11000), (20, 9900, 11000),
             (60, 16000, 17000),(70, 16000, 17000),
             (400, 8500, 27000),(400, 7000, 27000),
             (300, 7000, 21500),(151, 4500, 5000),
             (51, 18000, 9500), (52, 18000, 7500),
-            (55, 18000, 7500), (60, 18100, 8400)]
+            (55, 18000, 7500), (60, 18100, 8400),
+
+            (120,9900, 11000), (20, 9900, 11000),
+            (60, 16000, 17000),(70, 16000, 17000),
+            (400, 8500, 27000),(400, 7000, 27000),
+            (300, 7000, 21500),(151, 4500, 5000),
+            (51, 18000, 9500), (52, 18000, 7500),
+            (55, 18000, 7500), (60, 18100, 8400),
+
+            (120,9900, 11000), (20, 9900, 11000),
+            (60, 16000, 17000),(70, 16000, 17000),
+            (400, 8500, 27000),(400, 7000, 27000),
+            (300, 7000, 21500),(151, 4500, 5000),
+            (51, 18000, 9500), (52, 18000, 7500),
+            (55, 18000, 7500), (60, 18100, 8400),
+
+            ]
+
+tf.flags.DEFINE_string("kernel_shape", json.dumps(kernel_shape), "The convolutional model")
 
 FLAGS = tf.flags.FLAGS
 
@@ -92,6 +109,7 @@ HParams = namedtuple(
   ])
 
 def create_hparams():
+  print(FLAGS.kernel_shape)
   return HParams(
     exp_name = FLAGS.exp_name,
     source_width = FLAGS.source_width,
@@ -117,7 +135,7 @@ def create_hparams():
     optimizer = FLAGS.optimizer,
     loglevel = FLAGS.loglevel,
     softmax = FLAGS.softmax,
-    kernel_shape = kernel_shape,
+    kernel_shape = np.array(json.loads(FLAGS.kernel_shape)),
     pathset = pathset,
     model_dir = FLAGS.model_dir,
     loging_dir= FLAGS.loging_dir,
