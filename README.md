@@ -1,5 +1,5 @@
-# FilterFinder
-Filter Finder for Normalized Cross Correlation on EM images of neurons
+# Filter Finder
+Filter Finder for Deep Normalized Cross-Correlation on EM images of neurons
 
 Setup
 -----------

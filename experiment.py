@@ -13,15 +13,15 @@ argnames= ["mean_over_batch", "loss_type", "loss_form"]
 
 
 # Params for Architecture
-losses= [['True', 'ratio', 'minus'], ['False', 'dist', 'log']]
+losses= [['True', 'ratio', 'minus'], ['False', 'dist', 'log'], ['True', 'dist', 'log'], ['False', 'ratio', 'minus']]
 number_of_layers = [2, 3, 4, 5, 6]
 kernel_size = [16, 7, 5, 3]
-channels = [1, 2, 4]
+channels = [1, 2, 3]
 
 #Try later
 #dilation = [1,2]
 #dropout = [0.8,1]
-learning_rate = [0.01, 0.001, 0.0001]
+
 
 argnames= ["mean_over_batch", "loss_type", "loss_form", "kernel_shape", "dialation_rate"]
 
@@ -54,10 +54,10 @@ def loss_experiment():
 # Experiment for architectures
 def architecture_experiment():
     kernel_shapes = []
-    for i in range (30):
+    for i in range (40):
         kernel_shapes.append(construct_kernel(random.choice(number_of_layers)))
 
-    archs_perm = [losses, kernel_shapes, learning_rate]
+    archs_perm = [losses, kernel_shapes]
     params = list(itertools.product(*archs_perm))
     argnames= ["mean_over_batch", "loss_type", "loss_form"]
     #print(len(params))
@@ -74,9 +74,8 @@ def architecture_experiment():
             i = i + 1
 
         script.append("--kernel_shape="+json.dumps(param[1]).replace(" ", ""))
-        script.append("--learning_rate="+str(param[2]))
         script.append("--exp_name="+str(name))
-        script.append("--steps=800")
+        script.append("--steps=400")
         script = ' '.join(script)
         #print(name)
         subprocess.call(script, shell=True)

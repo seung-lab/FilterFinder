@@ -1,6 +1,24 @@
 import numpy as np
 import tensorflow as tf
 import time
+import data
+
+from tensorflow.examples.tutorials.mnist import input_data
+
+def pretrain(model, hparams, data=None):
+    mnist = input_data.read_data_sets("data/MNIST_data/", one_hot=True)
+    for i in range(20000):
+        batch = mnist.train.next_batch(50)
+
+        if i%100 == 0:
+            train_accuracy = model.accuracy.eval(session=model.sess,feed_dict={
+            model.x:batch[0], model.y: batch[1], model.dropout: 1.0})
+            print("step %d, training accuracy %g"%(i, train_accuracy))
+
+        model.train_step.run(session=model.sess, feed_dict={model.x: batch[0], model.y: batch[1], model.dropout: 0.5})
+
+    #print("test accuracy %g"%model.accuracy.eval(session=model.sess, feed_dict={
+    #    model.x: mnist.test.images, model.y: mnist.test.labels, model.keep_prob: 1.0}))
 
 def train(model, hparams, data):
 
@@ -17,7 +35,10 @@ def train(model, hparams, data):
     a = time.time()
     try:
         for i in range(hparams.steps):
-            search_space, template = model.sess.run([data.s_train, data.t_train])
+            if not hparams.toy:
+                search_space, template = model.sess.run([data.s_train, data.t_train])
+            else:
+                search_space, template = data.fake_data(hparams)
 
             #Train step data
             run_metadata = tf.RunMetadata()
@@ -33,7 +54,9 @@ def train(model, hparams, data):
 
             feed_dict ={model.image: search_space,
                         model.template: template,
-                        model.dropout: hparams.dropout}
+                        model.dropout: hparams.dropout,
+                        model.x: np.zeros((50,784)),
+                        model.y: np.zeros((50,10))}
 
 
             step = model.sess.run(model_run, feed_dict=feed_dict, run_metadata=run_metadata )
@@ -41,13 +64,14 @@ def train(model, hparams, data):
             loss[i] = np.absolute(step[1])
             p_max_c1[i] = step[2]
             p_max_c2[i] = step[3]
-
-            if loss[i]==float('Inf') or loss[i]==float('NaN'):
+            #time.sleep(1)
+            print(loss[i])
+            if loss[i]==float('Inf') or loss[i]==float('NaN') or loss[i]==0:
                 print('Stopping because of loss is ', loss[i])
                 raise ValueError('finished')
 
             #Evaluate
-            if i%hparams.epoch_size==0:
+            if i%hparams.epoch_size==0 and not hparams.toy:
                 b = time.time()
                 j = i/hparams.epoch_size
                 error[j], er_p_max_c1[j], er_p_max_c2[j] = test(model,hparams, data, i)
@@ -59,11 +83,12 @@ def train(model, hparams, data):
                     raise ValueError('finished')
 
             #Summary
-            model.train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
-            model.train_writer.add_summary(step[-1], i)
+            if i%hparams.epoch_size==0:
+                model.train_writer.add_run_metadata(run_metadata, 'step%03d' % i)
+                model.train_writer.add_summary(step[-1], i)
 
-    except:
-        pass
+    except Exception as err:
+        print(err)
     finally:
         save_path = model.saver.save(model.sess, hparams.model_dir+"model_"+model.id+".ckpt")
         model.train_writer.close()

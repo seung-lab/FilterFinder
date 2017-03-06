@@ -5,6 +5,7 @@ import tensorflow as tf
 
 import src.model as models
 import src.data as d
+import src.data_toy as toy_d
 import src.metrics as metrics
 import src.training as training
 import src.loss as loss
@@ -19,15 +20,30 @@ else:
 
 tf.logging.set_verbosity(hyperparams.FLAGS.loglevel)
 
+import numpy as np
+
+
 def main(unusedargs):
-  hparams = hyperparams.create_hparams()
+    hparams = hyperparams.create_hparams()
 
-  print("Loading the data model...")
-  data = d.Data(hparams)
-  print("Starting to trian...")
-  model = models.create_model(hparams, data, train= True)
-  training.train(model, hparams, data)
+    print("Loading the data model...")
+    if hparams.toy:
+        data = toy_d.Data(hparams)
+    else:
+        data = d.Data(hparams)
 
+    print("Creating the computational graph...")
+    model = models.create_model(hparams, data, train= True)
+
+    print("Pretrain network...")
+
+    # Add Pretrain
+    if hparams.toy:
+        model = models.premodel_mnist(model, hparams)
+        training.pretrain(model, hparams)
+
+    print("Starting to train...")
+    training.train(model, hparams, data)
 
 if __name__ == "__main__":
   tf.app.run()

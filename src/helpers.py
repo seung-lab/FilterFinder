@@ -2,16 +2,16 @@ import tensorflow as tf
 import metrics
 import numpy as np
 
-def bias_variable(identity = False, name = 'bias'):
+def bias_variable(identity = False, shape=(), name = 'bias'):
     if identity:
-        initial = tf.constant(-0.5)
+        initial = tf.constant(0.0, shape=shape)
     else:
-        initial = tf.constant(-0.5)
+        initial = tf.constant(0.0, shape=shape)
     b = tf.Variable(initial)
     #metrics.variable_summaries(b)
     return b
 
-def weight_variable(shape, identity = False, name = 'conv'):
+def weight_variable(shape, identity = False, name = 'conv', summary=True):
     #Build Convolution layer
     if identity:
         kernel_shape = np.array(shape)
@@ -20,7 +20,9 @@ def weight_variable(shape, identity = False, name = 'conv'):
     else:
         kernel_init = tf.random_normal(shape, stddev=0.01)
     weight = tf.Variable(kernel_init, name=name)
-    metrics.kernel_summary(weight, name)
+
+    if summary:
+        metrics.kernel_summary(weight, name)
     return weight
 
 def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
@@ -54,6 +56,13 @@ def softmax2d(image):
     soft_1D = tf.nn.softmax(image)
     soft_image = tf.reshape(soft_1D, shape, name=None)
     return soft_image
+
+def max_pool_2x2(x):
+    if(len(x.get_shape())==3):
+        x = tf.expand_dims(x, dim=3)
+    o = tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
+                          strides=[1, 2, 2, 1], padding='SAME')
+    return tf.squeeze(o)
 
 def fftconvolve2d(x, y, padding="VALID"):
     #return convolve2d(x,y)

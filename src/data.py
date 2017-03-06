@@ -4,7 +4,7 @@ from scipy.misc import imresize
 import os.path
 import tensorflow as tf
 
-TRAIN_FILE = 'train.tfrecords'
+TRAIN_FILE = 'train_100K.tfrecords'
 VALIDATION_FILE = 'validation.tfrecords'
 
 #Data Management
@@ -104,8 +104,11 @@ class Data(object):
             else:
                 template[i], search_space[i] = self.getSample(template_shape[1:3], search_shape[1:3], hparams.resize, self.metadata,  pathset[i][0], pathset[i][1:3])
         return template, search_space
+
     def getTrainBatch(self):
         return self.test
+
+
     # Functions below modified from here https://github.com/tensorflow/tensorflow/blob/master/tensorflow/examples/how_tos/reading_data/fully_connected_reader.py
     def read_and_decode(self, filename_queue, hparams):
       reader = tf.TFRecordReader()
@@ -121,11 +124,11 @@ class Data(object):
       # Convert from a scalar string tensor (whose single string has
       # length mnist.IMAGE_PIXELS) to a uint8 tensor with shape
       # [mnist.IMAGE_PIXELS].
-      search = tf.decode_raw(features['search_raw'], tf.float64) # Change to tf.int8
+      search = tf.decode_raw(features['search_raw'], tf.uint8) # Change to tf.int8
       search.set_shape([hparams.source_width*hparams.source_width])
       search = tf.reshape(search, [hparams.source_width, hparams.source_width])
 
-      template = tf.decode_raw(features['template_raw'], tf.float64) # Change to tf.int8
+      template = tf.decode_raw(features['template_raw'],tf.uint8) # Change to tf.int8
       template.set_shape([hparams.template_width*hparams.template_width])
       template = tf.reshape(template, [hparams.template_width, hparams.template_width])
       # OPTIONAL: Could reshape into a 28x28 image and apply distortions
@@ -134,8 +137,8 @@ class Data(object):
       # into a vector, we don't bother.
 
       # Convert from [0, 255] -> [-0.5, 0.5] floats.
-      search = tf.cast(search, tf.float32) #* (1. / 255)
-      template = tf.cast(template, tf.float32)# * (1. / 255)
+      search = tf.cast(search, tf.float32) / 255
+      template = tf.cast(template, tf.float32) / 255
       return search, template
 
 
@@ -156,8 +159,7 @@ class Data(object):
         must be run using e.g. tf.train.start_queue_runners().
       """
 
-      filename = os.path.join(hparams.data_dir,
-                              TRAIN_FILE if train else VALIDATION_FILE)
+      filename = os.path.join(hparams.data_dir, TRAIN_FILE)
 
       with tf.name_scope('input_provider'):
         filename_queue = tf.train.string_input_producer(
