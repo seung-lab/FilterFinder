@@ -5,8 +5,8 @@ import json
 
 # Model Parameters
 tf.flags.DEFINE_string("exp_name", None, "Name of the run")
-tf.flags.DEFINE_integer("source_width", 256, "The width of source image 512") #
-tf.flags.DEFINE_integer("template_width", 64, "The width of template image 224") #
+tf.flags.DEFINE_integer("source_width", 56, "The width of source image 512") #
+tf.flags.DEFINE_integer("template_width", 28, "The width of template image 224") #
 tf.flags.DEFINE_boolean("identity_init", False, "Initialize as Identity")
 tf.flags.DEFINE_integer("resize", 3, "Resize Images")
 tf.flags.DEFINE_integer("dropout", 1, "Global probability for dropout")
@@ -14,7 +14,7 @@ tf.flags.DEFINE_integer("dialation_rate", 1, "Global dilation rate ")
 tf.flags.DEFINE_integer("aligned", 0, "Define the data type")
 
 # Loss Parameters
-tf.flags.DEFINE_integer("radius", 10, "Maximum radius for finding second")
+tf.flags.DEFINE_integer("radius", 2, "Maximum radius for finding second")
 tf.flags.DEFINE_boolean("mean_over_batch", True, "Take the mean over the batch otherwise min")
 tf.flags.DEFINE_float("lambd", -0.5, "Lambda for mixed loss")
 tf.flags.DEFINE_float("eps", 0.0001, "small number")
@@ -31,6 +31,7 @@ tf.flags.DEFINE_string("model_dir", "/FilterFinder/model/", "Path to model files
 tf.flags.DEFINE_string("data_dir", "/FilterFinder/data/prepared", "Path to prepared data")
 
 # Training Parameters
+tf.flags.DEFINE_float("pretrain", False, "Pretrain convnet")
 tf.flags.DEFINE_float("toy", True, "Train on toy example")
 tf.flags.DEFINE_float("learning_rate", 0.01, "Learning rate")
 tf.flags.DEFINE_float("momentum", 0.9, "Learning momentum")
@@ -43,9 +44,9 @@ tf.flags.DEFINE_integer("eval_batch_size", 2, "Batch size during evaluation")
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer Name (Adam, Adagrad, etc)")
 tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 
-kernel_shape = [[5, 5, 1, 32],
-                [5, 5, 32, 64],
-                [1,1,64,1],
+kernel_shape = [[5, 5, 1, 16],
+                [5, 5, 16, 32],
+                [3,3,32,64],
                 ]
 
 
@@ -113,11 +114,13 @@ HParams = namedtuple(
     "toy",
     "decay",
     "decay_steps",
+    "pretrain",
   ])
 
 def create_hparams():
   print(FLAGS.kernel_shape)
   return HParams(
+    pretrain = FLAGS.pretrain,
     exp_name = FLAGS.exp_name,
     source_width = FLAGS.source_width,
     template_width = FLAGS.template_width,

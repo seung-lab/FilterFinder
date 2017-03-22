@@ -47,7 +47,7 @@ def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
         o = tf.nn.atrous_conv2d(x, y, rate=rate, padding=padding)
     else:
         o = tf.nn.conv2d(x, y, strides=strides, padding=padding)
-    return tf.squeeze(o)
+    return o
 
 def softmax2d(image):
     # ASSERT:  if 0 is softmax 0 under all conditions
@@ -62,7 +62,7 @@ def max_pool_2x2(x):
         x = tf.expand_dims(x, dim=3)
     o = tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1], padding='SAME')
-    return tf.squeeze(o)
+    return o
 
 def fftconvolve2d(x, y, padding="VALID"):
     #return convolve2d(x,y)

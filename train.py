@@ -35,10 +35,9 @@ def main(unusedargs):
     print("Creating the computational graph...")
     model = models.create_model(hparams, data, train= True)
 
-    print("Pretrain network...")
-
     # Add Pretrain
-    if hparams.toy:
+    if hparams.pretrain:
+        print("Pretrain network...")
         model = models.premodel_mnist(model, hparams)
         training.pretrain(model, hparams)
 

@@ -43,7 +43,7 @@ class Data(object):
         for i in range(hparams.batch_size):
             digits = []
             for j in range(10):
-                digits.append(self.getDigit(j, random=True))
+                digits.append(self.getDigit(j, random=False))
 
             c = np.random.choice(len(digits))
             s[i,:,:] = self.construct_digit_texture(digits[:c] + digits[c+1 :], c, hparams)
@@ -55,7 +55,7 @@ class Data(object):
     def construct_digit_texture(self, digits, c, hparams):
 
         texture = np.zeros((hparams.source_width, hparams.source_width))
-        cols = hparams.source_width/digits[0].shape[0]-1
+        cols = hparams.source_width/digits[0].shape[0]
         width = digits[0].shape[0]
 
         for x in range(cols):
@@ -64,7 +64,7 @@ class Data(object):
                 texture[x*width:(x+1)*width, y*width:(y+1)*width] = digits[choice][:,:]
 
         (x,y) = np.random.choice(cols), np.random.choice(cols)
-        texture[x*width:(x+1)*width, y*width:(y+1)*width] = self.getDigit(c, random=True)
+        texture[x*width:(x+1)*width, y*width:(y+1)*width] = self.getDigit(c, random=False)
         return texture
 
     def getDigit(self, d, random = False):

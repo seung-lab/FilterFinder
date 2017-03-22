@@ -75,16 +75,17 @@ def model(g, hparams):
             g.template_alpha.append(helpers.convolve2d(g.template_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
             g.template_alpha[i+1] = tf.tanh(g.template_alpha[i+1]+g.bias[i])#-g.bias[i]
 
-            #Max_pooling
-            g.source_alpha[i+1] = helpers. max_pool_2x2(g.source_alpha[i+1])
-            g.template_alpha[i+1] = helpers.max_pool_2x2(g.template_alpha[i+1])
+            # Max_pooling
+            #g.source_alpha[i+1] = helpers.max_pool_2x2(g.source_alpha[i+1])
+            #g.template_alpha[i+1] = helpers.max_pool_2x2(g.template_alpha[i+1])
 
             # Dropout Layer
             #g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
             #g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
-        print(g.source_alpha[-1].get_shape())
-        metrics.image_summary(g.source_alpha[-1], 'search_space')
-        metrics.image_summary(g.template_alpha[-1], 'template')
+        slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 0]))
+
+        #metrics.image_summary(tf.squeeze(g.source_alpha[-1]), 'search_space')
+        #metrics.image_summary(tf.squeeze(g.template_alpha[-1]), 'template')
 
 
     # Final Layer
@@ -101,6 +102,31 @@ def model(g, hparams):
 
 class Graph(object):
     pass
+
+
+def normxcorr(g, hparams):
+
+    source = g.source_alpha[-1]
+    template = g.template_alpha[-1]
+    s_shape = source.get_shape().as_list()
+    t_shape = template.get_shape().as_list()
+
+
+    with tf.variable_scope('normxcor'):
+        source = tf.transpose(source, [0,3,1,2])
+        template = tf.transpose(template, [0,3,1,2])
+
+        source = tf.reshape(source, [s_shape[0]*s_shape[3],s_shape[1], s_shape[2]])
+        template = tf.reshape(template, [t_shape[0]*t_shape[3], t_shape[1], t_shape[2]])
+
+        g.p = helpers.normxcorr2FFT(source, template) #get last convolved images
+
+        p_shape = g.p.get_shape().as_list()
+
+        g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
+        g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[1])) # Take the norm
+        metrics.image_summary(g.p, 'template_space')
+    return g
 
 def create_model(hparams, data, train = True):
     g = Graph()
@@ -126,18 +152,13 @@ def create_model(hparams, data, train = True):
 
     # Build the model
     g = model(g, hparams)
-
-    # Setup the loss
-    with tf.variable_scope('normxcor'):
-        g.p = helpers.normxcorr2FFT(g.source_alpha[-1], g.template_alpha[-1]) #get last convolved images
-        metrics.image_summary(g.p, 'template_space')
-
+    g = normxcorr(g, hparams)
     g = loss.loss(g, hparams)
 
     # Decaying step
     global_step = tf.Variable(0, trainable=False)
-    learning_rate = tf.train.exponential_decay(hparams.learning_rate, global_step,
-                                            hparams.decay_steps, hparams.decay, staircase=False)
+    learning_rate = tf.train.exponential_decay( hparams.learning_rate, global_step,
+                                                hparams.decay_steps, hparams.decay, staircase=False)
     g.train_step = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) # tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step)#
 
     g.merged = tf.summary.merge_all()

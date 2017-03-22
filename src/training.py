@@ -7,7 +7,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 
 def pretrain(model, hparams, data=None):
     mnist = input_data.read_data_sets("data/MNIST_data/", one_hot=True)
-    for i in range(20000):
+    for i in range(10000):
         batch = mnist.train.next_batch(50)
 
         if i%100 == 0:
@@ -54,9 +54,9 @@ def train(model, hparams, data):
 
             feed_dict ={model.image: search_space,
                         model.template: template,
-                        model.dropout: hparams.dropout,
-                        model.x: np.zeros((50,784)),
-                        model.y: np.zeros((50,10))}
+                        model.dropout: hparams.dropout,}
+                        #model.x: np.zeros((50,784)),
+                        #model.y: np.zeros((50,10))}
 
 
             step = model.sess.run(model_run, feed_dict=feed_dict, run_metadata=run_metadata )
