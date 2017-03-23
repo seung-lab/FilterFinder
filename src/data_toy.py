@@ -30,7 +30,7 @@ class Data(object):
         seven = self.getDigit(8)
         one = self.getDigit(2)
 
-        s_w = hparams.source_width
+        s_w = 56 #hparams.source_width
         t_w = hparams.template_width
         d_w = one.shape[0]
 
@@ -46,16 +46,21 @@ class Data(object):
                 digits.append(self.getDigit(j, random=False))
 
             c = np.random.choice(len(digits))
-            s[i,:,:] = self.construct_digit_texture(digits[:c] + digits[c+1 :], c, hparams)
+            s[i,:,:] = self.construct_digit_texture(digits[:c] + digits[c+1 :], c, s_w)
 
             t[i,start_t:end_t,start_t:end_t] = self.getDigit(c, random=True) #np.multiply(one,np.random.choice(np.arange(0, 2), p=[0.3, 0.7], size=[d_w, d_w]))
         s = np.asarray(s>0.5,  dtype=int)
+
+        #Pad if necessary
+        p = (hparams.source_width-s_w)/2
+        s = np.pad(s, ((0,0),(p,p),(p,p)), 'minimum')
+
         return s, t
 
-    def construct_digit_texture(self, digits, c, hparams):
+    def construct_digit_texture(self, digits, c, source_width):
 
-        texture = np.zeros((hparams.source_width, hparams.source_width))
-        cols = hparams.source_width/digits[0].shape[0]
+        texture = np.zeros((source_width, source_width))
+        cols = source_width/digits[0].shape[0]
         width = digits[0].shape[0]
 
         for x in range(cols):
@@ -65,6 +70,7 @@ class Data(object):
 
         (x,y) = np.random.choice(cols), np.random.choice(cols)
         texture[x*width:(x+1)*width, y*width:(y+1)*width] = self.getDigit(c, random=False)
+
         return texture
 
     def getDigit(self, d, random = False):

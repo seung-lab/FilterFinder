@@ -11,22 +11,26 @@ def bias_variable(identity = False, shape=(), name = 'bias'):
     #metrics.variable_summaries(b)
     return b
 
-def weight_variable(shape, identity = False, name = 'conv', summary=True):
+def weight_variable(shape, identity = False, xavier = True,  name = 'conv', summary=True):
     #Build Convolution layer
     if identity:
         kernel_shape = np.array(shape)
         kernel_init = np.zeros(shape)
         kernel_init[kernel_shape[0]/2,shape[1]/2] = 1.0
+        weight = tf.Variable(kernel_init, name=name)
+    elif xavier:
+        weight = tf.get_variable(name, shape=tuple(shape),
+            initializer=tf.contrib.layers.xavier_initializer())
     else:
         kernel_init = tf.random_normal(shape, stddev=0.01)
-    weight = tf.Variable(kernel_init, name=name)
+        weight = tf.Variable(kernel_init, name=name)
 
     if summary:
         metrics.kernel_summary(weight, name)
     return weight
 
 def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
-
+    
     #Dim corrections
     if(len(x.get_shape())==2):
         x = tf.expand_dims(x, dim=0)

@@ -70,23 +70,25 @@ def model(g, hparams):
     with tf.variable_scope('Passes'):
         for i in range(n):
             g.source_alpha.append(helpers.convolve2d(g.source_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
-            g.source_alpha[i+1] = tf.tanh(g.source_alpha[i+1]+g.bias[i])#-g.bias[i]
+            if not hparams.linear: g.source_alpha[i+1] = tf.tanh(g.source_alpha[i+1]+g.bias[i])
 
             g.template_alpha.append(helpers.convolve2d(g.template_alpha[i], g.kernel_conv[i], 'VALID', rate = hparams.dialation_rate))
-            g.template_alpha[i+1] = tf.tanh(g.template_alpha[i+1]+g.bias[i])#-g.bias[i]
+            if not hparams.linear: g.template_alpha[i+1] = tf.tanh(g.template_alpha[i+1]+g.bias[i])
 
             # Max_pooling
+            #if i>0:
             #g.source_alpha[i+1] = helpers.max_pool_2x2(g.source_alpha[i+1])
             #g.template_alpha[i+1] = helpers.max_pool_2x2(g.template_alpha[i+1])
 
             # Dropout Layer
-            #g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
-            #g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
-        slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 0]))
+            if hparams.dropout<1: g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
+            if hparams.dropout<1: g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
 
-        #metrics.image_summary(tf.squeeze(g.source_alpha[-1]), 'search_space')
-        #metrics.image_summary(tf.squeeze(g.template_alpha[-1]), 'template')
+        slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
+        slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
 
+        metrics.image_summary(slice_source, 'search_space')
+        metrics.image_summary(slice_template, 'template')
 
     # Final Layer
     #g.bias.append(helpers.bias_variable(hparams.identity_init))
@@ -124,7 +126,8 @@ def normxcorr(g, hparams):
         p_shape = g.p.get_shape().as_list()
 
         g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
-        g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[1])) # Take the norm
+        g.p = tf.reduce_sum(g.p, axis=[1])
+        #g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[1])) # Take the norm
         metrics.image_summary(g.p, 'template_space')
     return g
 
@@ -159,7 +162,7 @@ def create_model(hparams, data, train = True):
     global_step = tf.Variable(0, trainable=False)
     learning_rate = tf.train.exponential_decay( hparams.learning_rate, global_step,
                                                 hparams.decay_steps, hparams.decay, staircase=False)
-    g.train_step = tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) # tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step)#
+    g.train_step =  tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step) #  tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) #
 
     g.merged = tf.summary.merge_all()
     g.saver = tf.train.Saver()

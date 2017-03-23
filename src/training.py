@@ -58,7 +58,6 @@ def train(model, hparams, data):
                         #model.x: np.zeros((50,784)),
                         #model.y: np.zeros((50,10))}
 
-
             step = model.sess.run(model_run, feed_dict=feed_dict, run_metadata=run_metadata )
 
             loss[i] = np.absolute(step[1])

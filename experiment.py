@@ -7,6 +7,7 @@ import random
 
 # Parameters for loss types
 mean_over_batch = {"True", "False"}
+linearity = {"True", "False"}
 loss_type = {"dist", "ratio"}
 loss_form = {"log", "minus", "inverse" }
 argnames= ["mean_over_batch", "loss_type", "loss_form"]
@@ -14,8 +15,8 @@ argnames= ["mean_over_batch", "loss_type", "loss_form"]
 
 # Params for Architecture
 losses= [['True', 'ratio', 'minus'], ['False', 'dist', 'log'], ['True', 'dist', 'log'], ['False', 'ratio', 'minus']]
-number_of_layers = [2, 3, 4, 5, 6]
-kernel_size = [16, 7, 5, 3]
+number_of_layers = [3, 4]
+kernel_size = [7, 5, 3]
 channels = [1, 2, 3]
 
 #Try later
@@ -29,11 +30,12 @@ argnames= ["mean_over_batch", "loss_type", "loss_form", "kernel_shape", "dialati
 
 
 def main(unusedargs):
-    architecture_experiment()
+    linearity_experiment()
 
 
 def loss_experiment():
     print('Running..')
+    loss_perm = [mean_over_batch, loss_type, loss_form]
     params = list(itertools.product(*loss_perm))
 
     for param in params:
@@ -50,6 +52,34 @@ def loss_experiment():
         print(script)
         subprocess.call(script, shell=True)
 
+
+def linearity_experiment():
+    print('running')
+    loss_perm = [linearity, mean_over_batch, loss_type, loss_form]
+    params = list(itertools.product(*loss_perm))
+    argnames= ["linear", "mean_over_batch", "loss_type", "loss_form"]
+    
+    for param in params:
+        script = ["python train.py"]
+        i = 0
+        name = "lin="
+        for argname in argnames:
+            script.append("--"+argname+"="+param[i])
+            name += '_'+param[i]
+            i = i + 1
+        print(param[0])
+
+
+        kernel = construct_kernel(random.choice(number_of_layers))
+        if param[0]=='True':
+            kernel = [[32,32,1,1]]
+
+        script.append("--kernel_shape="+json.dumps(kernel).replace(" ", ""))
+        script.append("--exp_name="+str(name))
+        script.append("--steps=1000")
+        script = ' '.join(script)
+        print(script)
+        #subprocess.call(script, shell=True)
 
 # Experiment for architectures
 def architecture_experiment():

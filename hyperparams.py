@@ -5,16 +5,17 @@ import json
 
 # Model Parameters
 tf.flags.DEFINE_string("exp_name", None, "Name of the run")
-tf.flags.DEFINE_integer("source_width", 56, "The width of source image 512") #
-tf.flags.DEFINE_integer("template_width", 28, "The width of template image 224") #
+tf.flags.DEFINE_integer("source_width", 512, "The width of source image 512") #
+tf.flags.DEFINE_integer("template_width", 224, "The width of template image 224") #
 tf.flags.DEFINE_boolean("identity_init", False, "Initialize as Identity")
 tf.flags.DEFINE_integer("resize", 3, "Resize Images")
 tf.flags.DEFINE_integer("dropout", 1, "Global probability for dropout")
 tf.flags.DEFINE_integer("dialation_rate", 1, "Global dilation rate ")
 tf.flags.DEFINE_integer("aligned", 0, "Define the data type")
+tf.flags.DEFINE_integer("linear", True, "Decide if the convolution is linear or not")
 
 # Loss Parameters
-tf.flags.DEFINE_integer("radius", 2, "Maximum radius for finding second")
+tf.flags.DEFINE_integer("radius", 5, "Maximum radius for finding second")
 tf.flags.DEFINE_boolean("mean_over_batch", True, "Take the mean over the batch otherwise min")
 tf.flags.DEFINE_float("lambd", -0.5, "Lambda for mixed loss")
 tf.flags.DEFINE_float("eps", 0.0001, "small number")
@@ -32,21 +33,21 @@ tf.flags.DEFINE_string("data_dir", "/FilterFinder/data/prepared", "Path to prepa
 
 # Training Parameters
 tf.flags.DEFINE_float("pretrain", False, "Pretrain convnet")
-tf.flags.DEFINE_float("toy", True, "Train on toy example")
-tf.flags.DEFINE_float("learning_rate", 0.01, "Learning rate")
+tf.flags.DEFINE_float("toy", False, "Train on toy example")
+tf.flags.DEFINE_float("learning_rate", 0.001, "Learning rate")
 tf.flags.DEFINE_float("momentum", 0.9, "Learning momentum")
 tf.flags.DEFINE_float("decay", 0.75, "Learning momentum")
 tf.flags.DEFINE_float("decay_steps", 1000, "Learning momentum")
-tf.flags.DEFINE_integer("steps", 10000, "Number of steps to complete the training")
-tf.flags.DEFINE_integer("batch_size", 8, "Batch size during training")
+tf.flags.DEFINE_integer("steps", 1000, "Number of steps to complete the training")
+tf.flags.DEFINE_integer("batch_size", 10, "Batch size during training")
 tf.flags.DEFINE_integer("epoch_size", 16, "Epoch size during training")
 tf.flags.DEFINE_integer("eval_batch_size", 2, "Batch size during evaluation")
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer Name (Adam, Adagrad, etc)")
 tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 
-kernel_shape = [[5, 5, 1, 16],
-                [5, 5, 16, 32],
-                [3,3,32,64],
+kernel_shape = [[5, 5, 1, 12],
+                [5, 5, 12, 15],
+                [3, 3, 15, 1],
                 ]
 
 
@@ -115,6 +116,7 @@ HParams = namedtuple(
     "decay",
     "decay_steps",
     "pretrain",
+    "linear",
   ])
 
 def create_hparams():
@@ -155,4 +157,5 @@ def create_hparams():
     toy = FLAGS.toy,
     decay = FLAGS.decay,
     decay_steps = FLAGS.decay_steps,
+    linear = FLAGS.linear,
     )
