@@ -1,6 +1,7 @@
 import tensorflow as tf
 import metrics
 import numpy as np
+from random import randint
 
 def bias_variable(identity = False, shape=(), name = 'bias'):
     if identity:
@@ -29,8 +30,15 @@ def weight_variable(shape, identity = False, xavier = True,  name = 'conv', summ
         metrics.kernel_summary(weight, name)
     return weight
 
+def add_conv_weight_layer(kernels, kernel_shape, bias, identity_init= False):
+    # Set variables
+    stringID = str(len(kernels))+'_'+str(randint(10000,99999))
+    bias.append(bias_variable(identity_init, shape=[kernel_shape[3]], name='bias_layer_'+stringID))
+    kernels.append(weight_variable(kernel_shape, identity_init, name='layer_'+stringID, summary=False))
+    return kernels
+
 def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
-    
+
     #Dim corrections
     if(len(x.get_shape())==2):
         x = tf.expand_dims(x, dim=0)
@@ -52,6 +60,30 @@ def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
     else:
         o = tf.nn.conv2d(x, y, strides=strides, padding=padding)
     return o
+
+def deconv2d(x, W, stride=2, output_shape=None):
+    x_shape = x.get_shape().as_list()
+    print('deconv2d')
+    #x_shape[1] = 2*x_shape[1]
+    #x_shape[2] = 2*x_shape[2]
+    #if not output_shape:
+    output_shape =[x_shape[0], x_shape[1]*2, x_shape[2]*2, x_shape[3]//2]
+    print(output_shape)
+
+    return tf.nn.conv2d_transpose(x, W, output_shape=output_shape, strides=[1, stride, stride, 1], padding='VALID')
+
+def crop(x, shape):
+    old_shape = x.get_shape().as_list()
+    pad = (old_shape[1] - shape[1])/2
+    return tf.slice(x, [0,pad,pad,0], [-1, shape[1], shape[2],-1])
+
+def concat(x, y):
+    shape = y.get_shape().as_list()
+    x = crop(x, shape)
+    print('concat')
+    print(x.get_shape())
+    print(y.get_shape())
+    return tf.concat([x, y], axis= 3)
 
 def softmax2d(image):
     # ASSERT:  if 0 is softmax 0 under all conditions
@@ -138,8 +170,14 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01)
     denominator = tf.sqrt(localvariance*templatevariance)
 
     #zero housekeeping
-    numerator = tf.where(denominator<=tf.zeros(tf.shape(denominator)), tf.zeros(tf.shape(numerator), tf.float32), numerator)
-    denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator))+tf.constant(eps), tf.zeros(tf.shape(denominator), tf.float32)+tf.constant(eps), denominator)
+    numerator = tf.where(denominator<=tf.zeros(tf.shape(denominator)),
+                            tf.zeros(tf.shape(numerator), tf.float32),
+                            numerator)
+
+    denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator))+tf.constant(eps),
+                            tf.zeros(tf.shape(denominator),
+                            tf.float32)+tf.constant(eps),
+                            denominator)
 
     #Compute Pearson
     p = tf.div(numerator,denominator)

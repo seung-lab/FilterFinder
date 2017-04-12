@@ -18,6 +18,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import src.helpers as helpers
+import src.loss as loss
+import hyperparams
+
 import argparse
 import os
 import sys
@@ -27,6 +31,7 @@ import numpy as np
 
 import hyperparams
 import src.data as d
+import src.model as models
 
 FLAGS = None
 
@@ -37,7 +42,6 @@ def _int64_feature(value):
 
 def _bytes_feature(value):
   return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
-
 
 def convert_to(data, hparams, num_examples, name):
   """Converts a dataset to tfrecords."""
@@ -50,19 +54,41 @@ def convert_to(data, hparams, num_examples, name):
   print('Writing', filename)
   writer = tf.python_io.TFRecordWriter(filename)
 
-  for index in range(num_examples):
-    if index%20 == 0:
-        print(str(100*index/float(num_examples))+"%")
+  sess = tf.Session()
+  g = models.Graph()
+
+  search = tf.placeholder(tf.float32, shape=[512, 512])
+  template = tf.placeholder(tf.float32, shape=[224, 224])
+
+  search_dim = tf.expand_dims(tf.expand_dims(search, dim=0), dim=3)
+  template_dim = tf.expand_dims(tf.expand_dims(template, dim=0), dim=3)
+
+  g.source_alpha = [search_dim]
+  g.template_alpha = [template_dim]
+
+  g = models.normxcorr(g, hparams)
+  g = loss.loss(g, hparams)
+  index = 0
+  while(index < num_examples):
+    #if index%20 == 0:
+    #    print(str(100*index/float(num_examples))+"%")
     #Get images
     t, s = data.getSample([t_rows, t_rows], [s_rows, s_rows], hparams.resize, data.metadata)
 
-    search_raw = np.asarray(s*255, dtype=np.uint8).tostring()
-    temp_raw = np.asarray(t*255, dtype=np.uint8).tostring()
+    result = sess.run(g.l, feed_dict={template: t, search: s})
 
-    ex = tf.train.Example(features=tf.train.Features(feature={
-        'search_raw': _bytes_feature(search_raw),
-        'template_raw': _bytes_feature(temp_raw),}))
-    writer.write(ex.SerializeToString())
+    print(result)
+    if(result> -0.2):
+        print('done', index)
+        search_raw = np.asarray(s*255, dtype=np.uint8).tostring()
+        temp_raw = np.asarray(t*255, dtype=np.uint8).tostring()
+
+        ex = tf.train.Example(features=tf.train.Features(feature={
+            'search_raw': _bytes_feature(search_raw),
+            'template_raw': _bytes_feature(temp_raw),}))
+
+        writer.write(ex.SerializeToString())
+        index += 1
 
   writer.close()
 
@@ -73,9 +99,9 @@ def main(unused_argv):
   data = d.Data(hparams, prepare = True )
 
   # Convert to Examples and write the result to TFRecords.
-  convert_to(data, hparams, 64000, 'train_100K')
-  convert_to(data, hparams, 1000, 'validation_1K')
-  convert_to(data, hparams, 1000, 'test_1K')
+  convert_to(data, hparams, 20000, 'train_bad_10')
+  #convert_to(data, hparams, 1000, 'validation_1K')
+  #convert_to(data, hparams, 1000, 'test_1K')
 
 
 if __name__ == '__main__':

@@ -43,10 +43,19 @@ def loss(g, hparams, eps = 0.001):
     elif hparams.loss_form == 'log':
         g.l = -tf.log(g.l)
 
+    #Add more sanity checks
+    g.to_update = tf.logical_and(tf.reduce_all(tf.is_finite(g.l)), tf.greater(tf.reduce_max(g.l), -0.1))
+    #g.l = tf.where(tf.is_finite(g.l), g.l, tf.zeros(tf.shape(g.l), tf.float32), name=None)
+
+
+    g.full_loss= g.l #tf.reduce_min(g.l)
+
     if hparams.mean_over_batch == True:
         g.l = tf.reduce_mean(g.l)
     else:
         g.l = tf.reduce_max(g.l)
+
+
 
     g.p_max = tf.reduce_mean(g.p_max)
     g.p_max_2 = tf.reduce_mean(g.p_max_2)

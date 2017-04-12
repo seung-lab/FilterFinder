@@ -3,13 +3,16 @@ import h5py
 from scipy.misc import imresize
 import os.path
 import tensorflow as tf
+from tensorflow.examples.tutorials.mnist import input_data
+import scipy.ndimage
 
-TRAIN_FILE = 'train_100K.tfrecords'
+TRAIN_FILE = 'train_bad_20.tfrecords'
 VALIDATION_FILE = 'validation.tfrecords'
 
 #Data Management
 class Data(object):
     def __init__(self, hparams, prepare= False):
+        self.mnist = input_data.read_data_sets("data/MNIST_data/", one_hot=True)
         if prepare:
             self.metadata = self.getMetadata(hparams)
         else:
@@ -180,3 +183,35 @@ class Data(object):
             min_after_dequeue=1000)
 
         return search_images, template_images
+
+    def addNoise(self, image, template):
+        width = 28*7
+        for i in range(image.shape[0]):
+            (x,y) = (np.random.randint(image.shape[1])/8, np.random.randint(image.shape[2])/8)
+            (x,y) = (x+180,y+180)
+            #(x,y) = (200,200)
+            c = np.random.choice(9)
+            blob =  np.multiply(image[i, x:x+width,y:y+width],self.getDigit(c, random=False))
+            image[i, x:x+width,y:y+width] = blob
+            template[i, 0:width,0:width] =  blob
+
+        return image
+
+    def getDigit(self, d, random = False):
+
+        label = np.zeros((10))
+        label[d] = 1
+        length = self.mnist.train.images.shape[0]
+        start = 0
+        if random:
+            start = np.random.choice(3*length/4)
+
+        for i in range(length):
+            if self.mnist.train.labels[i+start, d] == label[d]:
+                return scipy.ndimage.zoom(1-self.mnist.train.images[i+start].reshape((28,28)), 7, order=0)
+
+    def check_validity(self, search, template):
+        t = np.array(template.shape)
+        if np.any(np.sum(search<0.01, axis=(1,2)) >= t[1]*t[2]):
+            return False
+        return True

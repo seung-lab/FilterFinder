@@ -3,6 +3,9 @@ import tensorflow as tf
 import h5py
 from scipy.misc import imresize
 import matplotlib.pyplot as plt
+from PIL import Image
+
+directory = 'data/debug/'
 
 def prints():
     print("hello")
@@ -33,6 +36,14 @@ def showMultiLoss(loss_data, p1, p2, smoothing = 100):
     plt.plot(xrange(iters), loss_data, c='grey')
     plt.plot(xrange(hamming.shape[0]), hamming, c='r')
 
+
+def save(image, name='out'):
+    im = image+np.abs(image.min())
+    im = 255*(im/im.max())
+    im = np.squeeze(im)
+    #print(im.shape)
+    result = Image.fromarray(im.astype(np.uint8))
+    result.save(directory+name+'.jpg')
 
 def xcsurface(xc):
     from mpl_toolkits.mplot3d import Axes3D

@@ -2,7 +2,7 @@ import numpy as np
 import tensorflow as tf
 import time
 import data
-
+import visual as viz
 from tensorflow.examples.tutorials.mnist import input_data
 
 def pretrain(model, hparams, data=None):
@@ -37,6 +37,12 @@ def train(model, hparams, data):
         for i in range(hparams.steps):
             if not hparams.toy:
                 search_space, template = model.sess.run([data.s_train, data.t_train])
+                # add random noise
+                #search_space = data.addNoise(search_space, template)
+
+                if not data.check_validity(search_space, template):
+                    #print('input error found')
+                    continue
             else:
                 search_space, template = data.fake_data(hparams)
 
@@ -50,7 +56,9 @@ def train(model, hparams, data):
                         model.kernel_conv[0],
                         model.source_alpha,
                         model.template_alpha,
-                        model.merged]
+                        model.full_loss,
+                        model.merged,
+                        ]
 
             feed_dict ={model.image: search_space,
                         model.template: template,
@@ -63,11 +71,28 @@ def train(model, hparams, data):
             loss[i] = np.absolute(step[1])
             p_max_c1[i] = step[2]
             p_max_c2[i] = step[3]
-            #time.sleep(1)
             print(loss[i])
-            if loss[i]==float('Inf') or loss[i]==float('NaN') or loss[i]==0:
-                print('Stopping because of loss is ', loss[i])
+
+            if i>0 and True and loss[i]==0:
+                viz.save( oldstep[4][0], name='p')
+                viz.save( oldstep[4][1], name='p_1')
+                viz.save( oldstep[6][0][0], name='source_alpha')
+                viz.save( oldstep[6][0][1], name='source_alpha_1')
+                viz.save( oldstep[7][0][0], name='template_alpha')
+                viz.save( oldstep[7][0][1], name='template_alpha_2')
+
+                viz.save( oldstep[6][-1][0], name='conv_source_alpha')
+                viz.save( oldstep[6][-1][1], name='conv_source_alpha_1')
+                viz.save( oldstep[7][-1][0], name='conv_template_alpha')
+                viz.save( oldstep[7][-1][1], name='conv_template_alpha_2')
                 raise ValueError('finished')
+            oldstep = step
+
+            #if loss[i]==float('Inf') or loss[i]==float('NaN') or loss[i]==0:
+                #print(step[2], step[3])
+
+                #print('Stopping because of loss is ', loss[i])
+                #raise ValueError('finished')
 
             #Evaluate
             if i%hparams.epoch_size==0 and not hparams.toy:
@@ -77,9 +102,9 @@ def train(model, hparams, data):
                 print ("step: %g, train: %g, test: %g, time %g"%(i,loss[i], error[i/hparams.epoch_size], b-a))
                 a = time.time()
 
-                if loss[i]==0 and error[j]==0:
-                    print('Stopping because of test error is ', error[i])
-                    raise ValueError('finished')
+                #if loss[i]==0 and error[j]==0:
+                    #print('Stopping because of test error is ', error[i])
+                    #raise ValueError('finished')
 
             #Summary
             if i%hparams.epoch_size==0:

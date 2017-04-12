@@ -58,7 +58,7 @@ def linearity_experiment():
     loss_perm = [linearity, mean_over_batch, loss_type, loss_form]
     params = list(itertools.product(*loss_perm))
     argnames= ["linear", "mean_over_batch", "loss_type", "loss_form"]
-    
+
     for param in params:
         script = ["python train.py"]
         i = 0
@@ -79,7 +79,7 @@ def linearity_experiment():
         script.append("--steps=1000")
         script = ' '.join(script)
         print(script)
-        #subprocess.call(script, shell=True)
+        subprocess.call(script, shell=True)
 
 # Experiment for architectures
 def architecture_experiment():

@@ -5,7 +5,6 @@ import loss
 import metrics
 from datetime import datetime
 
-
 def premodel_mnist(g, hparams): #Mnist
 
     g.x = tf.placeholder(tf.float32, [50, 784])
@@ -50,7 +49,7 @@ def premodel_mnist(g, hparams): #Mnist
 
 # import normxcorr2FFT, fftconvolve, bias, weights, loss
 def model(g, hparams):
-
+    return Unet(g,hparams)
     # Init Convolution Weights
     g.source_alpha = [g.image]
     g.template_alpha = [g.template]
@@ -60,6 +59,7 @@ def model(g, hparams):
     g.bias = []
 
     n = hparams.kernel_shape.shape[0]
+
     # Setup Weights
     with tf.variable_scope('Filters'):
         for i in range(n):
@@ -76,13 +76,14 @@ def model(g, hparams):
             if not hparams.linear: g.template_alpha[i+1] = tf.tanh(g.template_alpha[i+1]+g.bias[i])
 
             # Max_pooling
-            #if i>0:
-            #g.source_alpha[i+1] = helpers.max_pool_2x2(g.source_alpha[i+1])
-            #g.template_alpha[i+1] = helpers.max_pool_2x2(g.template_alpha[i+1])
+            if i == 1 and False: #or i == 2:
+                g.source_alpha[i+1] = helpers.max_pool_2x2(g.source_alpha[i+1])
+                g.template_alpha[i+1] = helpers.max_pool_2x2(g.template_alpha[i+1])
 
             # Dropout Layer
-            if hparams.dropout<1: g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
-            if hparams.dropout<1: g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
+            if i == 1 or i == 3:
+                if hparams.dropout<1: g.source_alpha[i+1] = tf.nn.dropout(g.source_alpha[i+1], g.dropout)
+                if hparams.dropout<1: g.template_alpha[i+1] = tf.nn.dropout(g.template_alpha[i+1], g.dropout)
 
         slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
         slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
@@ -101,6 +102,96 @@ def model(g, hparams):
     #g.template_alpha[n] = tf.nn.sigmoid(g.template_alpha[n])+g.bias[n-1]
 
     return g
+
+def Unet(g, hparams):
+    # Init Convolution Weights
+    g.source_alpha = [g.image]
+    g.template_alpha = [g.template]
+
+    # Multilayer convnet
+    g.kernel_conv = []
+    g.kernel_conv_right = []
+    g.kernel_conv_up = []
+
+    g.bias = []
+    g.bias_right = []
+    g.bias_up = []
+
+    n = hparams.kernel_shape.shape[0]
+
+    # Setup Weights
+    with tf.variable_scope('Filters'):
+        # Unet weights
+        for i in range(n):
+
+            #First layer
+            shape = hparams.kernel_shape[i]
+            g.kernel_conv = helpers.add_conv_weight_layer(g.kernel_conv, shape, g.bias) # Left
+            if not i==(n-1): # Right
+                shape[2] = 2*shape[3]
+                g.kernel_conv_right = helpers.add_conv_weight_layer(g.kernel_conv_right, shape, g.bias_right)
+
+            #Up layer
+            if not i==(n-1):
+                new_shape = [2,2, shape[3], 2*shape[3]]
+                g.kernel_conv_up = helpers.add_conv_weight_layer(g.kernel_conv_up, new_shape, g.bias_up) # Up
+
+            #Second layer
+            shape[2] = shape[3]
+            g.kernel_conv = helpers.add_conv_weight_layer(g.kernel_conv, shape, g.bias) # Left
+            if not i==(n-1): g.kernel_conv_right = helpers.add_conv_weight_layer(g.kernel_conv_right, shape, g.bias_right) # Right
+
+    count = len(g.kernel_conv)
+
+    with tf.variable_scope('Passes'):
+        # Down
+        for i in range(count):
+            g.source_alpha.append(helpers.convolve2d(g.source_alpha[-1], g.kernel_conv[i]))
+            if not hparams.linear: g.source_alpha[-1] = tf.tanh(g.source_alpha[-1]+g.bias[i])
+
+            g.template_alpha.append(helpers.convolve2d(g.template_alpha[-1], g.kernel_conv[i]))
+            if not hparams.linear: g.template_alpha[-1] =tf.tanh(g.template_alpha[-1]+g.bias[i])
+
+            # Max_pooling
+            if i%2==0 and i!=count and i!=0: #or i == 2:
+                g.source_alpha[-1] = helpers.max_pool_2x2(g.source_alpha[-1])
+                g.template_alpha[-1] = helpers.max_pool_2x2(g.template_alpha[-1])
+
+        print('left done')
+
+        # Up
+        for i in range(len(g.kernel_conv_up)):
+            #Deconvolution
+            g.source_alpha.append(helpers.deconv2d(g.source_alpha[-1], g.kernel_conv_up[-i-1], output_shape= g.source_alpha[count-2*(i+1)].get_shape().as_list()))
+            g.template_alpha.append(helpers.deconv2d(g.template_alpha[-1], g.kernel_conv_up[-i-1], output_shape= g.template_alpha[count-2*(i+1)].get_shape().as_list()))
+
+            #Concatination
+            g.source_alpha[-1] = helpers.concat(g.source_alpha[count-2*(i+1)], g.source_alpha[-1])
+            g.template_alpha[-1] = helpers.concat(g.template_alpha[count-2*(i+1)], g.template_alpha[-1])
+
+
+            print('convolutions')
+            print(g.source_alpha[-1].get_shape())
+            #2 Convolutions
+            for j in range(2):
+                g.source_alpha.append(helpers.convolve2d(g.source_alpha[-1], g.kernel_conv_right[-2*i-2+j]))
+                if not hparams.linear: g.source_alpha[-1] = tf.tanh(g.source_alpha[-1]+g.bias_right[-2*i-2+j])
+
+                g.template_alpha.append(helpers.convolve2d(g.template_alpha[-1], g.kernel_conv_right[-2*i-2+j]))
+                if not hparams.linear: g.template_alpha[-1] = tf.tanh(g.template_alpha[-1]+g.bias_right[-2*i-2+j])
+
+        #Output convolution
+        g.kernel_conv = helpers.add_conv_weight_layer(g.kernel_conv, [1,1,hparams.kernel_shape[0,3],1], g.bias)
+        g.source_alpha.append(helpers.convolve2d(g.source_alpha[-1], g.kernel_conv[-1]))
+        g.template_alpha.append(helpers.convolve2d(g.template_alpha[-1], g.kernel_conv[-1]))
+
+        slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
+        slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
+
+        metrics.image_summary(slice_source, 'search_space')
+        metrics.image_summary(slice_template, 'template')
+    return g
+
 
 class Graph(object):
     pass
@@ -133,7 +224,7 @@ def normxcorr(g, hparams):
 
 def create_model(hparams, data, train = True):
     g = Graph()
-    config = tf.ConfigProto(log_device_placement = False)
+    config = tf.ConfigProto(log_device_placement = False, allow_soft_placement = True)
     config.gpu_options.allow_growth = True
     if train:
         g.sess = tf.Session(config=config)
@@ -162,7 +253,11 @@ def create_model(hparams, data, train = True):
     global_step = tf.Variable(0, trainable=False)
     learning_rate = tf.train.exponential_decay( hparams.learning_rate, global_step,
                                                 hparams.decay_steps, hparams.decay, staircase=False)
-    g.train_step =  tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step) #  tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) #
+
+    #g.train_step = tf.cond(g.to_update,
+    #                            lambda: tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step),
+    #                            lambda: tf.no_op(), name=None)
+    g.train_step = tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step)  #  tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) #
 
     g.merged = tf.summary.merge_all()
     g.saver = tf.train.Saver()
