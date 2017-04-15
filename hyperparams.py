@@ -28,7 +28,7 @@ tf.flags.DEFINE_string("loging_dir", "/FilterFinder/logs/", "Path for logging th
 tf.flags.DEFINE_string("metadata_dir", "/FilterFinder/data/prealigned/registry.txt", "Path to registry.txt file")
 tf.flags.DEFINE_string("prealigned_dir", "/FilterFinder/data/prealigned/", "Path to prealigned data")
 tf.flags.DEFINE_string("aligned_dir", "/FilterFinder/data/aligned/pinky_aligned_11184-11695_25018-25529_1-260.h5", "Path to aligned fie")
-tf.flags.DEFINE_string("model_dir", "/FilterFinder/model/", "Path to model files")
+tf.flags.DEFINE_string("model_dir", "/FilterFinder/model2/", "Path to model files")
 tf.flags.DEFINE_string("data_dir", "/FilterFinder/data/prepared", "Path to prepared data")
 
 # Training Parameters

@@ -30,12 +30,12 @@ def weight_variable(shape, identity = False, xavier = True,  name = 'conv', summ
         metrics.kernel_summary(weight, name)
     return weight
 
-def add_conv_weight_layer(kernels, kernel_shape, bias, identity_init= False):
+def add_conv_weight_layer(kernels, bias, kernel_shape, identity_init= False):
     # Set variables
     stringID = str(len(kernels))+'_'+str(randint(10000,99999))
     bias.append(bias_variable(identity_init, shape=[kernel_shape[3]], name='bias_layer_'+stringID))
     kernels.append(weight_variable(kernel_shape, identity_init, name='layer_'+stringID, summary=False))
-    return kernels
+    return kernels, bias
 
 def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
 
@@ -61,16 +61,13 @@ def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
         o = tf.nn.conv2d(x, y, strides=strides, padding=padding)
     return o
 
-def deconv2d(x, W, stride=2, output_shape=None):
+def deconv2d(x, W, stride=2, padding = "SAME"):
     x_shape = x.get_shape().as_list()
     print('deconv2d')
-    #x_shape[1] = 2*x_shape[1]
-    #x_shape[2] = 2*x_shape[2]
-    #if not output_shape:
     output_shape =[x_shape[0], x_shape[1]*2, x_shape[2]*2, x_shape[3]//2]
     print(output_shape)
 
-    return tf.nn.conv2d_transpose(x, W, output_shape=output_shape, strides=[1, stride, stride, 1], padding='VALID')
+    return tf.nn.conv2d_transpose(x, W, output_shape=output_shape, strides=[1, stride, stride, 1], padding=padding)
 
 def crop(x, shape):
     old_shape = x.get_shape().as_list()
@@ -99,6 +96,33 @@ def max_pool_2x2(x):
     o = tf.nn.max_pool(x, ksize=[1, 2, 2, 1],
                           strides=[1, 2, 2, 1], padding='SAME')
     return o
+
+### FusionNet
+def conv_block(x, y, kernels, bias, kernel_shape):
+    kernels, bias = add_conv_weight_layer(kernels, bias, kernel_shape)
+
+    x_out = tf.tanh(convolve2d(x, kernels[-1], padding='SAME')+bias[-1])
+    y_out = tf.tanh(convolve2d(y, kernels[-1], padding='SAME')+bias[-1])
+
+    return x_out, y_out
+
+def deconv_block(x, y, kernels, bias, kernel_shape):
+    kernels, bias = add_conv_weight_layer(kernels, bias, kernel_shape)
+
+    x_out = deconv2d(x, kernels[-1], padding='SAME') #tf.tanh( ... +bias[-1)
+    y_out = deconv2d(y, kernels[-1], padding='SAME') #tf.tanh( ... +bias[-1])
+
+    return x_out, y_out
+
+def residual_block(x, y, kernels, bias, kernel_shape):
+    x_1, y_1 = conv_block(x, y, kernels, bias, kernel_shape)
+    kernel_shape[2] = kernel_shape[3]
+    x_2, y_2 = conv_block(x_1, y_1, kernels, bias, kernel_shape)
+    x_3, y_3 = conv_block(x_2, y_2, kernels, bias, kernel_shape)
+    x_4, y_4 = conv_block(x_3, y_3, kernels, bias, kernel_shape)
+
+    x_5, y_5 = conv_block(x_4+x_1, y_4+y_1, kernels, bias, kernel_shape)
+    return x_5, y_5
 
 def fftconvolve2d(x, y, padding="VALID"):
     #return convolve2d(x,y)

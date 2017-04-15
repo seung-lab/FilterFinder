@@ -37,11 +37,12 @@ def train(model, hparams, data):
         for i in range(hparams.steps):
             if not hparams.toy:
                 search_space, template = model.sess.run([data.s_train, data.t_train])
+
                 # add random noise
                 #search_space = data.addNoise(search_space, template)
+                #_, template = data.augment(search_space, template, hparams)
 
                 if not data.check_validity(search_space, template):
-                    #print('input error found')
                     continue
             else:
                 search_space, template = data.fake_data(hparams)
@@ -59,7 +60,7 @@ def train(model, hparams, data):
                         model.full_loss,
                         model.merged,
                         ]
-
+            #print(template.shape)
             feed_dict ={model.image: search_space,
                         model.template: template,
                         model.dropout: hparams.dropout,}
@@ -134,7 +135,7 @@ def test(model, hparams, data, iteration):
         for i in range(steps):
             #s, t = model.sess.run([data.s_test, data.t_test])
             t, s =  data.getTrainBatch()
-
+            #_, t = data.augment(s, t, hparams)
             model_run =[model.merged,
                         model.l,
                         model.p_max,

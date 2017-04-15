@@ -6,7 +6,7 @@ import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import scipy.ndimage
 
-TRAIN_FILE = 'train_bad_20.tfrecords'
+TRAIN_FILE = 'train_bad_20.tfrecords' #train_712x334 train_bad_20
 VALIDATION_FILE = 'validation.tfrecords'
 
 #Data Management
@@ -144,7 +144,6 @@ class Data(object):
       template = tf.cast(template, tf.float32) / 255
       return search, template
 
-
     def inputs(self, train, hparams, num_epochs=None):
       """Reads input data num_epochs times.
       Args:
@@ -183,6 +182,23 @@ class Data(object):
             min_after_dequeue=1000)
 
         return search_images, template_images
+
+    def augment(self, search, template, hparams):
+        search_shape = 512
+        template_shape = 128
+        aug_search = np.zeros((hparams.batch_size, search_shape, search_shape))
+        aug_template = np.zeros((hparams.batch_size, template_shape, template_shape))
+        ratio = 6
+
+        # Translation
+        for i in range(hparams.batch_size):
+            #(x, y) = (np.random.randint(search.shape[1])/ratio, np.random.randint(search.shape[2])/ratio)
+            #aug_search[i, :, :] = search[i, x:x+search_shape, y:y+search_shape]
+
+            (x, y) = (0,0) #(np.random.randint(template.shape[1])/ratio, np.random.randint(template.shape[2])/ratio)
+            aug_template[i, :, :] = template[i, x:x+template_shape, y:y+template_shape]
+
+        return aug_search, aug_template
 
     def addNoise(self, image, template):
         width = 28*7

@@ -57,8 +57,8 @@ def convert_to(data, hparams, num_examples, name):
   sess = tf.Session()
   g = models.Graph()
 
-  search = tf.placeholder(tf.float32, shape=[512, 512])
-  template = tf.placeholder(tf.float32, shape=[224, 224])
+  search = tf.placeholder(tf.float32, shape=[hparams.source_width,hparams.source_width])
+  template = tf.placeholder(tf.float32, shape=[hparams.template_width,hparams.template_width])
 
   search_dim = tf.expand_dims(tf.expand_dims(search, dim=0), dim=3)
   template_dim = tf.expand_dims(tf.expand_dims(template, dim=0), dim=3)
@@ -99,7 +99,7 @@ def main(unused_argv):
   data = d.Data(hparams, prepare = True )
 
   # Convert to Examples and write the result to TFRecords.
-  convert_to(data, hparams, 20000, 'train_bad_10')
+  convert_to(data, hparams, 50000, 'asdsasd')
   #convert_to(data, hparams, 1000, 'validation_1K')
   #convert_to(data, hparams, 1000, 'test_1K')
 
