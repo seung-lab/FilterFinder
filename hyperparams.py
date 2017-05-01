@@ -5,8 +5,11 @@ import json
 
 # Model Parameters
 tf.flags.DEFINE_string("exp_name", None, "Name of the run")
+tf.flags.DEFINE_integer("in_source_width", 612, "The width of source image 612") #
+tf.flags.DEFINE_integer("in_template_width", 324, "The width of template image 324") #
+
 tf.flags.DEFINE_integer("source_width", 512, "The width of source image 512") #
-tf.flags.DEFINE_integer("template_width", 224, "The width of template image 224") #
+tf.flags.DEFINE_integer("template_width", 160, "The width of template image 224") #
 tf.flags.DEFINE_boolean("identity_init", False, "Initialize as Identity")
 tf.flags.DEFINE_integer("resize", 3, "Resize Images")
 tf.flags.DEFINE_integer("dropout", 1, "Global probability for dropout")
@@ -22,6 +25,13 @@ tf.flags.DEFINE_float("eps", 0.0001, "small number")
 tf.flags.DEFINE_string("loss_type", "dist", "Define the loss format either 'dist' or 'ratio' ")
 tf.flags.DEFINE_string("loss_form", "minus", "Define the loss formulae to minimize over {'minus', 'inverse', 'log'}")
 tf.flags.DEFINE_boolean("softmax", False, "Use Softmax")
+
+
+# Data Augmentation
+tf.flags.DEFINE_boolean("flipping", True, "Use Softmax")
+tf.flags.DEFINE_boolean("rotating", False, "maximum rotation")
+tf.flags.DEFINE_float("degree", 0.05, "maximum rotation")
+
 
 # Data paths
 tf.flags.DEFINE_string("loging_dir", "/FilterFinder/logs/", "Path for logging the data")
@@ -45,10 +55,11 @@ tf.flags.DEFINE_integer("eval_batch_size", 2, "Batch size during evaluation")
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer Name (Adam, Adagrad, etc)")
 tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 
-kernel_shape = [[3, 3, 1, 32],
-                [3, 3, 32, 64],
-                [3, 3, 64, 128],
-                [3, 3, 128, 256],
+kernel_shape = [[3, 3, 1, 8],
+                [3, 3, 8, 16],
+                [3, 3, 16, 32],
+                #[3, 3, 32, 64],
+                #[3, 3, 128, 256],
                 #[3, 3, 128, 256],
                 ]
 
@@ -84,6 +95,11 @@ HParams = namedtuple(
   "HParams",
   [
     "exp_name",
+    "in_source_width",
+    "in_template_width",
+    "flipping",
+    "rotating",
+    "degree",
     "source_width",
     "template_width",
     "identity_init",
@@ -126,6 +142,8 @@ def create_hparams():
   return HParams(
     pretrain = FLAGS.pretrain,
     exp_name = FLAGS.exp_name,
+    in_source_width = FLAGS.in_source_width,
+    in_template_width = FLAGS.in_template_width,
     source_width = FLAGS.source_width,
     template_width = FLAGS.template_width,
     identity_init = FLAGS.identity_init,
@@ -160,4 +178,7 @@ def create_hparams():
     decay = FLAGS.decay,
     decay_steps = FLAGS.decay_steps,
     linear = FLAGS.linear,
+    flipping = FLAGS.flipping,
+    rotating = FLAGS.rotating,
+    degree = FLAGS.degree,
     )

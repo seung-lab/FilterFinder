@@ -46,8 +46,8 @@ def _bytes_feature(value):
 def convert_to(data, hparams, num_examples, name):
   """Converts a dataset to tfrecords."""
 
-  s_rows = hparams.source_width
-  t_rows = hparams.template_width
+  s_rows = hparams.in_source_width
+  t_rows = hparams.in_template_width
 
   filename = os.path.join(hparams.data_dir, name + '.tfrecords')
 
@@ -57,8 +57,8 @@ def convert_to(data, hparams, num_examples, name):
   sess = tf.Session()
   g = models.Graph()
 
-  search = tf.placeholder(tf.float32, shape=[hparams.source_width,hparams.source_width])
-  template = tf.placeholder(tf.float32, shape=[hparams.template_width,hparams.template_width])
+  search = tf.placeholder(tf.float32, shape=[hparams.in_source_width,hparams.in_source_width])
+  template = tf.placeholder(tf.float32, shape=[hparams.in_template_width,hparams.in_template_width])
 
   search_dim = tf.expand_dims(tf.expand_dims(search, dim=0), dim=3)
   template_dim = tf.expand_dims(tf.expand_dims(template, dim=0), dim=3)
@@ -78,7 +78,7 @@ def convert_to(data, hparams, num_examples, name):
     result = sess.run(g.l, feed_dict={template: t, search: s})
 
     print(result)
-    if(result> -0.2):
+    if(result> -0.2) or result<-0.90:
         print('done', index)
         search_raw = np.asarray(s*255, dtype=np.uint8).tostring()
         temp_raw = np.asarray(t*255, dtype=np.uint8).tostring()
@@ -99,7 +99,7 @@ def main(unused_argv):
   data = d.Data(hparams, prepare = True )
 
   # Convert to Examples and write the result to TFRecords.
-  convert_to(data, hparams, 50000, 'asdsasd')
+  convert_to(data, hparams, 24000, '213123')
   #convert_to(data, hparams, 1000, 'validation_1K')
   #convert_to(data, hparams, 1000, 'test_1K')
 

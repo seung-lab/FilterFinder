@@ -42,7 +42,7 @@ def train(model, hparams, data):
                 #search_space = data.addNoise(search_space, template)
                 #_, template = data.augment(search_space, template, hparams)
 
-                if not data.check_validity(search_space, template):
+                if not data.check_validity(search_space, template, hparams):
                     continue
             else:
                 search_space, template = data.fake_data(hparams)

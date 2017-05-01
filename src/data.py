@@ -5,8 +5,9 @@ import os.path
 import tensorflow as tf
 from tensorflow.examples.tutorials.mnist import input_data
 import scipy.ndimage
+import helpers
 
-TRAIN_FILE = 'train_bad_20.tfrecords' #train_712x334 train_bad_20
+TRAIN_FILE = 'train_612x324.tfrecords' #train_712x334, train_bad_20, train
 VALIDATION_FILE = 'validation.tfrecords'
 
 #Data Management
@@ -128,21 +129,51 @@ class Data(object):
       # length mnist.IMAGE_PIXELS) to a uint8 tensor with shape
       # [mnist.IMAGE_PIXELS].
       search = tf.decode_raw(features['search_raw'], tf.uint8) # Change to tf.int8
-      search.set_shape([hparams.source_width*hparams.source_width])
-      search = tf.reshape(search, [hparams.source_width, hparams.source_width])
+      search.set_shape([hparams.in_source_width*hparams.in_source_width])
+      search = tf.reshape(search, [hparams.in_source_width, hparams.in_source_width])
 
       template = tf.decode_raw(features['template_raw'],tf.uint8) # Change to tf.int8
-      template.set_shape([hparams.template_width*hparams.template_width])
-      template = tf.reshape(template, [hparams.template_width, hparams.template_width])
+      template.set_shape([hparams.in_template_width*hparams.in_template_width])
+      template = tf.reshape(template, [hparams.in_template_width, hparams.in_template_width])
+
       # OPTIONAL: Could reshape into a 28x28 image and apply distortions
       # here.  Since we are not applying any distortions in this
       # example, and the next step expects the image to be flattened
       # into a vector, we don't bother.
 
+      # Rotation - Random Flip left, right, random, up down
+      if hparams.flipping:
+          distortions = tf.random_uniform([2], 0, 1.0, dtype=tf.float32)
+          search = self.image_distortions(search, distortions)
+          template =  self.image_distortions(template, distortions)
+
+      # Rotation by degree (rotate only single channel)
+      if hparams.rotating:
+          angle = tf.random_uniform([1], -hparams.degree, hparams.degree, dtype=tf.float32)
+          search = helpers.rotate_image(search, angle)
+
+      # Translation - Crop 712 - > 512 and 324 -> 224 ( At least 10 times bigger)
+      search = tf.random_crop(search,  [hparams.source_width, hparams.source_width])
+      template =  tf.random_crop(template, [hparams.template_width, hparams.template_width])
+
+
+
       # Convert from [0, 255] -> [-0.5, 0.5] floats.
       search = tf.cast(search, tf.float32) / 255
       template = tf.cast(template, tf.float32) / 255
       return search, template
+
+    def image_distortions(self, image, distortions):
+
+        distort_left_right_random = distortions[0]
+        mirror = tf.cond(distort_left_right_random > 0.5, lambda: tf.constant([0,1]), lambda: tf.constant([0]))
+        image = tf.reverse(image, mirror)
+
+        distort_up_down_random = distortions[1]
+        mirror = tf.cond(distort_up_down_random > 0.5, lambda: tf.constant([0,1]), lambda: tf.constant([0]))
+        image = tf.reverse(image, mirror)
+
+        return image
 
     def inputs(self, train, hparams, num_epochs=None):
       """Reads input data num_epochs times.
@@ -165,7 +196,7 @@ class Data(object):
 
       with tf.name_scope('input_provider'):
         filename_queue = tf.train.string_input_producer(
-            [filename], num_epochs=1)
+            [filename, filename, filename, filename, filename], num_epochs=1)
 
         # Even when reading in multiple threads, share the filename
         # queue.
@@ -178,10 +209,12 @@ class Data(object):
         search_images, template_images = tf.train.shuffle_batch(
             [search, template], batch_size=hparams.batch_size, num_threads=2,
             capacity=1000 * hparams.batch_size,
+            allow_smaller_final_batch=True,
             # Ensures a minimum amount of shuffling of examples.
             min_after_dequeue=1000)
 
         return search_images, template_images
+
 
     def augment(self, search, template, hparams):
         search_shape = 512
@@ -226,8 +259,8 @@ class Data(object):
             if self.mnist.train.labels[i+start, d] == label[d]:
                 return scipy.ndimage.zoom(1-self.mnist.train.images[i+start].reshape((28,28)), 7, order=0)
 
-    def check_validity(self, search, template):
+    def check_validity(self, search, template, hparams):
         t = np.array(template.shape)
-        if np.any(np.sum(search<0.01, axis=(1,2)) >= t[1]*t[2]):
+        if np.any(np.sum(search<0.01, axis=(1,2)) >= t[1]*t[2]) or search.shape[0]<hparams.batch_size:
             return False
         return True

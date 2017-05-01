@@ -3,6 +3,7 @@ import metrics
 import numpy as np
 from random import randint
 
+
 def bias_variable(identity = False, shape=(), name = 'bias'):
     if identity:
         initial = tf.constant(0.0, shape=shape)
@@ -32,7 +33,7 @@ def weight_variable(shape, identity = False, xavier = True,  name = 'conv', summ
 
 def add_conv_weight_layer(kernels, bias, kernel_shape, identity_init= False):
     # Set variables
-    stringID = str(len(kernels))+'_'+str(randint(10000,99999))
+    stringID = str(len(kernels))+'_'+str(len(kernels))
     bias.append(bias_variable(identity_init, shape=[kernel_shape[3]], name='bias_layer_'+stringID))
     kernels.append(weight_variable(kernel_shape, identity_init, name='layer_'+stringID, summary=False))
     return kernels, bias
@@ -63,9 +64,9 @@ def convolve2d(x,y, padding = "VALID", strides=[1,1,1,1], rate = 1):
 
 def deconv2d(x, W, stride=2, padding = "SAME"):
     x_shape = x.get_shape().as_list()
-    print('deconv2d')
+    #print('deconv2d')
     output_shape =[x_shape[0], x_shape[1]*2, x_shape[2]*2, x_shape[3]//2]
-    print(output_shape)
+    #sprint(output_shape)
 
     return tf.nn.conv2d_transpose(x, W, output_shape=output_shape, strides=[1, stride, stride, 1], padding=padding)
 
@@ -176,21 +177,77 @@ def fftconvolve2d(x, y, padding="VALID"):
     z = tf.slice(z, begin, size)
     return z
 
+def fftconvolve2d3d(x,y, padding):
+    x_shape = x.get_shape().as_list()
+    y_shape = y.get_shape().as_list()
+
+    x = tf.transpose(x, [0,3,1,2])
+    y = tf.transpose(y, [0,3,1,2])
+
+    x = tf.reshape(x, [x_shape[0]*x_shape[3], x_shape[1], x_shape[2]])
+    y = tf.reshape(y, [y_shape[0]*y_shape[3], y_shape[1], y_shape[2]])
+
+    o = fftconvolve2d(x, y, padding)
+    o_shape = o.get_shape().as_list()
+
+    o = tf.reshape(o, [x_shape[0], x_shape[3], o_shape[1], o_shape[2]])
+    o = tf.reduce_mean(o, axis=[1])
+    o = tf.squeeze(o)
+    return o
+
+def fftconvolve3d(x, y, padding):
+    # FIXME SAME will not work correctly
+    # FIXME specifically designed for normxcorr (need to work more to make it general)
+    # Read shapes
+    x_shape = np.array(tuple(x.get_shape().as_list()), dtype=np.int32)
+    y_shape = np.array(tuple(y.get_shape().as_list()), dtype=np.int32)
+    # Construct paddings and pad
+    x_shape[1:4] = x_shape[1:4]-1
+    y_pad =  [[0,0], [0, x_shape[1]],[0, x_shape[2]], [0, x_shape[3]]]
+    y_shape[1:4] = y_shape[1:4]-1
+    x_pad = [[0,0], [0, y_shape[1]],[0, y_shape[2]], [0, y_shape[3]]]
+
+    x = tf.pad(x, x_pad)
+    y = tf.pad(y, y_pad)
+
+    y = tf.cast(y, tf.complex64, name='complex_Y')
+    x = tf.cast(x, tf.complex64, name='complex_X')
+
+    convftt = tf.real(tf.ifft3d(tf.multiply(tf.fft3d(x), tf.fft3d(y), name='fft_mult')))
+
+    print(convftt.get_shape())
+    #Slice correctly based on requirements
+    if padding == 'VALID':
+        begin = [0, y_shape[1], y_shape[2],  y_shape[3]]
+        size  = [x_shape[0], x_shape[1]-y_shape[1], x_shape[2]-y_shape[1], 1]
+
+    if padding == 'SAME':
+        begin = [0, y_shape[1]/2-1, y_shape[2]/2-1, y_shape[3]-1]
+        size  = x_shape #[-1, x_shape[0], x_shape[1]]
+
+    z = tf.slice(convftt, begin, size)
+    z = tf.squeeze(z)
+    return z
+
 def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01):
 
     #normalize and get variance
-    dt = template - tf.reduce_mean(template, axis = [1,2], keep_dims = True)
-    templatevariance = tf.reduce_sum(tf.square(dt), axis = [1,2], keep_dims = True)
+    dt = template - tf.reduce_mean(template, axis = [1,2,3], keep_dims = True) # [1,2,3]
+
+    templatevariance = tf.reduce_sum(tf.square(dt), axis = [1,2,3], keep_dims = True) #[1,2,3]
+    templatevariance =  tf.squeeze(templatevariance, [3]) #[3]
 
     t1 = tf.ones(tf.shape(dt))
-    tr = tf.reverse(dt, [1, 2])
-    numerator = fftconvolve2d(img, tr, padding=padding)
+    tr = tf.reverse(dt, [1, 2, 3]) # ][1,2,3]
 
-    localsum2 = fftconvolve2d(tf.square(img), t1, padding=padding)
-    localsum = fftconvolve2d(img, t1, padding=padding)
+    numerator = fftconvolve3d(img, tr, padding=padding)
 
-    shape = template.get_shape()[1].value*template.get_shape()[2].value
+    localsum2 = fftconvolve3d(tf.square(img), t1, padding=padding)
+    localsum = fftconvolve3d(img, t1, padding=padding)
+
+    shape = template.get_shape()[1].value*template.get_shape()[2].value * template.get_shape()[3].value
     localvariance = localsum2-tf.square(localsum)/shape
+
     denominator = tf.sqrt(localvariance*templatevariance)
 
     #zero housekeeping
@@ -199,8 +256,7 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01)
                             numerator)
 
     denominator = tf.where(denominator<=tf.zeros(tf.shape(denominator))+tf.constant(eps),
-                            tf.zeros(tf.shape(denominator),
-                            tf.float32)+tf.constant(eps),
+                            tf.zeros(tf.shape(denominator),tf.float32)+tf.constant(eps),
                             denominator)
 
     #Compute Pearson
@@ -208,3 +264,94 @@ def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01)
     p = tf.where(tf.is_nan(p, name=None), tf.zeros(tf.shape(p), tf.float32), p, name=None)
 
     return p
+
+def rotate_image(image, angle):
+    image = tf.expand_dims(image, dim=2)
+    image = rotate_image_tensor(image, angle)
+    image = tf.squeeze(image)
+    return image
+
+def rotate_image_tensor(image, angle, mode='black'):
+    """
+    BY zimmermc from stackoverflow
+    Rotates a 3D tensor (HWD), which represents an image by given radian angle.
+
+    New image has the same size as the input image.
+
+    mode controls what happens to border pixels.
+    mode = 'black' results in black bars (value 0 in unknown areas)
+    mode = 'white' results in value 255 in unknown areas
+    mode = 'ones' results in value 1 in unknown areas
+    mode = 'repeat' keeps repeating the closest pixel known
+    """
+    s = image.get_shape().as_list()
+    assert len(s) == 3, "Input needs to be 3D."
+    assert (mode == 'repeat') or (mode == 'black') or (mode == 'white') or (mode == 'ones'), "Unknown boundary mode."
+    image_center = [np.floor(x/2) for x in s]
+
+    # Coordinates of new image
+    coord1 = tf.range(s[0])
+    coord2 = tf.range(s[1])
+
+    # Create vectors of those coordinates in order to vectorize the image
+    coord1_vec = tf.tile(coord1, [s[1]])
+
+    coord2_vec_unordered = tf.tile(coord2, [s[0]])
+    coord2_vec_unordered = tf.reshape(coord2_vec_unordered, [s[0], s[1]])
+    coord2_vec = tf.reshape(tf.transpose(coord2_vec_unordered, [1, 0]), [-1])
+
+    # center coordinates since rotation center is supposed to be in the image center
+    coord1_vec_centered = coord1_vec - image_center[0]
+    coord2_vec_centered = coord2_vec - image_center[1]
+
+    coord_new_centered = tf.cast(tf.stack([coord1_vec_centered, coord2_vec_centered]), tf.float32)
+
+    # Perform backward transformation of the image coordinates
+    rot_mat_inv = tf.dynamic_stitch([tf.constant(0), tf.constant(1), tf.constant(2), tf.constant(3)], [tf.cos(angle), tf.sin(angle), -tf.sin(angle), tf.cos(angle)])
+    rot_mat_inv = tf.reshape(rot_mat_inv, shape=[2, 2])
+    coord_old_centered = tf.matmul(rot_mat_inv, coord_new_centered)
+
+    # Find nearest neighbor in old image
+    coord1_old_nn = tf.cast(tf.round(coord_old_centered[0, :] + image_center[0]), tf.int32)
+    coord2_old_nn = tf.cast(tf.round(coord_old_centered[1, :] + image_center[1]), tf.int32)
+
+    # Clip values to stay inside image coordinates
+    if mode == 'repeat':
+        coord_old1_clipped = tf.minimum(tf.maximum(coord1_old_nn, 0), s[0]-1)
+        coord_old2_clipped = tf.minimum(tf.maximum(coord2_old_nn, 0), s[1]-1)
+    else:
+        outside_ind1 = tf.logical_or(tf.greater(coord1_old_nn, s[0]-1), tf.less(coord1_old_nn, 0))
+        outside_ind2 = tf.logical_or(tf.greater(coord2_old_nn, s[1]-1), tf.less(coord2_old_nn, 0))
+        outside_ind = tf.logical_or(outside_ind1, outside_ind2)
+
+        coord_old1_clipped = tf.boolean_mask(coord1_old_nn, tf.logical_not(outside_ind))
+        coord_old2_clipped = tf.boolean_mask(coord2_old_nn, tf.logical_not(outside_ind))
+
+        coord1_vec = tf.boolean_mask(coord1_vec, tf.logical_not(outside_ind))
+        coord2_vec = tf.boolean_mask(coord2_vec, tf.logical_not(outside_ind))
+
+
+    coord_old_clipped = tf.cast(tf.transpose(tf.stack([coord_old1_clipped, coord_old2_clipped]), [1, 0]), tf.int32)
+
+    # Coordinates of the new image
+    coord_new = tf.transpose(tf.cast(tf.stack([coord1_vec, coord2_vec]), tf.int32), [1, 0])
+
+    image_channel_list = tf.split(image, s[2], 1)
+
+    image_rotated_channel_list = list()
+    for image_channel in image_channel_list:
+        image_chan_new_values = tf.gather_nd(tf.squeeze(image_channel), coord_old_clipped)
+
+        if (mode == 'black') or (mode == 'repeat'):
+            background_color = 0
+        elif mode == 'ones':
+            background_color = 1
+        elif mode == 'white':
+            background_color = 255
+
+        image_rotated_channel_list.append(tf.sparse_to_dense(coord_new, [s[0], s[1]], image_chan_new_values,
+                                                             background_color, validate_indices=False))
+
+    image_rotated = tf.transpose(tf.stack(image_rotated_channel_list), [1, 2, 0])
+
+    return image_rotated

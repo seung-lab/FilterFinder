@@ -25,7 +25,7 @@ def premodel_mnist(g, hparams): #Mnist
 
     W_fc1 = helpers.weight_variable([4*4*g.bias[1].get_shape().as_list()[0], 1024], summary=False)
     b_fc1 = helpers.bias_variable(shape=[1024])
-    print(h_pool2.get_shape())
+
     h_pool2_flat = tf.reshape(h_pool2, [-1, 4*4*g.bias[1].get_shape().as_list()[0]])
     h_fc1 = tf.nn.relu(tf.matmul(h_pool2_flat, W_fc1) + b_fc1)
 
@@ -169,7 +169,6 @@ def Unet(g, hparams):
             g.source_alpha[-1] = helpers.concat(g.source_alpha[count-2*(i+1)], g.source_alpha[-1])
             g.template_alpha[-1] = helpers.concat(g.template_alpha[count-2*(i+1)], g.template_alpha[-1])
 
-
             print('convolutions')
             print(g.source_alpha[-1].get_shape())
             #2 Convolutions
@@ -181,7 +180,8 @@ def Unet(g, hparams):
                 if not hparams.linear: g.template_alpha[-1] = tf.tanh(g.template_alpha[-1]+g.bias_right[-2*i-2+j])
 
         #Output convolution
-        g.kernel_conv = helpers.add_conv_weight_layer(g.kernel_conv, [1,1,hparams.kernel_shape[0,3],1], g.bias)
+        g.kernel_conv, g.bias = helpers.add_conv_weight_layer(g.kernel_conv,  g.bias, [1,1,hparams.kernel_shape[0,3],1])
+
         g.source_alpha.append(helpers.convolve2d(g.source_alpha[-1], g.kernel_conv[-1]))
         g.template_alpha.append(helpers.convolve2d(g.template_alpha[-1], g.kernel_conv[-1]))
 
@@ -203,20 +203,25 @@ def FusionNet(g, hparams):
         count = hparams.kernel_shape.shape[0]
 
         # Encode
+        print('FusionNet')
+        print('encode')
         for i in range(count):
             x, y = g.source_alpha[-1], g.template_alpha[-1]
             x, y = helpers.residual_block(x, y, g.kernel_conv, g.bias, hparams.kernel_shape[i])
             g.source_alpha.append(x), g.template_alpha.append(y)
-
+            print(hparams.kernel_shape[i])
             if i!=(count-1):
-                print(i)
+                #print(i)
                 max_x, max_y = helpers.max_pool_2x2(x), helpers.max_pool_2x2(y)
                 g.source_alpha.append(max_x), g.template_alpha.append(max_y)
 
         # Decode
+        print('decode')
         for i in range(1, count):
             shape = hparams.kernel_shape[-i]
+
             shape = [2,2, shape[3]/2, shape[3]]
+            print(shape)
             x, y = g.source_alpha[-1], g.template_alpha[-1]
 
             x, y = helpers.deconv_block(x, y, g.kernel_conv, g.bias, shape)
@@ -226,12 +231,16 @@ def FusionNet(g, hparams):
             g.source_alpha.append(x), g.template_alpha.append(y)
 
         # Final Layer
-        x, y = g.source_alpha[-1], g.template_alpha[-1]
-        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1,hparams.kernel_shape[0, 3],1])
-        g.source_alpha.append(x), g.template_alpha.append(y)
+        #x, y = g.source_alpha[-1], g.template_alpha[-1]
+        #x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3],   2])
+        #g.source_alpha.append(x), g.template_alpha.append(y)
 
         slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
         slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
+
+        slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
+        slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
+        metrics.image_summary(slice_source_layers, 'search_space_features')
 
         metrics.image_summary(slice_source, 'search_space')
         metrics.image_summary(slice_template, 'template')
@@ -246,23 +255,24 @@ def normxcorr(g, hparams):
 
     source = g.source_alpha[-1]
     template = g.template_alpha[-1]
-    s_shape = source.get_shape().as_list()
-    t_shape = template.get_shape().as_list()
+    #s_shape = source.get_shape().as_list()
+    #t_shape = template.get_shape().as_list()
 
 
     with tf.variable_scope('normxcor'):
-        source = tf.transpose(source, [0,3,1,2])
-        template = tf.transpose(template, [0,3,1,2])
+        #source = tf.transpose(source, [0,3,1,2])
+        #template = tf.transpose(template, [0,3,1,2])
 
-        source = tf.reshape(source, [s_shape[0]*s_shape[3],s_shape[1], s_shape[2]])
-        template = tf.reshape(template, [t_shape[0]*t_shape[3], t_shape[1], t_shape[2]])
+        #source = tf.reshape(source, [s_shape[0]*s_shape[3],s_shape[1], s_shape[2]])
+        #template = tf.reshape(template, [t_shape[0]*t_shape[3], t_shape[1], t_shape[2]])
 
         g.p = helpers.normxcorr2FFT(source, template) #get last convolved images
 
-        p_shape = g.p.get_shape().as_list()
+        #p_shape = g.p.get_shape().as_list()
 
-        g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
-        g.p = tf.reduce_sum(g.p, axis=[1])
+        #g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
+
+        #g.p = tf.reduce_sum(g.p, axis=[1])
         #g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[1])) # Take the norm
         metrics.image_summary(g.p, 'template_space')
     return g
@@ -274,7 +284,7 @@ def create_model(hparams, data, train = True):
     if train:
         g.sess = tf.Session(config=config)
     else:
-        g.sess = tf.InteractiveSession()
+        g.sess = tf.InteractiveSession(config=config)
 
     # Write normalised cross-correlation and loss function
     with tf.variable_scope('input'):
@@ -301,7 +311,7 @@ def create_model(hparams, data, train = True):
 
     #g.train_step = tf.cond(g.to_update,
     #                            lambda: tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step),
-    #                            lambda: tf.no_op(), name=None)
+    #                            lambda: c, name=None)
     g.train_step = tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step)  #  tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) #
 
     g.merged = tf.summary.merge_all()
@@ -324,6 +334,7 @@ def create_model(hparams, data, train = True):
     g.threads = tf.train.start_queue_runners(sess=g.sess, coord=g.coord)
 
     if train==False:
+        print('Restoring weights')
         ckpt = tf.train.get_checkpoint_state(hparams.model_dir)
         if ckpt and ckpt.model_checkpoint_path:
             g.saver.restore(g.sess, ckpt.model_checkpoint_path)
