@@ -5,7 +5,7 @@ from scipy.misc import imresize
 import matplotlib.pyplot as plt
 from PIL import Image
 
-directory = '/data/debug'
+directory = '/data/debug/'
 
 def prints():
     print("hello")

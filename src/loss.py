@@ -48,14 +48,14 @@ def loss(g, hparams, eps = 0.001):
     #g.l = tf.where(tf.is_finite(g.l), g.l, tf.zeros(tf.shape(g.l), tf.float32), name=None)
 
 
-    g.full_loss= g.l #tf.reduce_min(g.l)
+    g.full_loss = g.l #tf.reduce_min(g.l)
 
     if hparams.mean_over_batch == True:
         g.l = tf.reduce_mean(g.l)
     else:
         g.l = tf.reduce_max(g.l)
 
-
+    g.l = tf.where(g.similar>0, g.l, tf.abs(g.l), name=None)
 
     g.p_max = tf.reduce_mean(g.p_max)
     g.p_max_2 = tf.reduce_mean(g.p_max_2)

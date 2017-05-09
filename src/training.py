@@ -33,8 +33,11 @@ def train(model, hparams, data):
 
     # Get initial data and run through the graph
     a = time.time()
+    similar = True
+    label = np.array(1.0, dtype=np.float)
     try:
         for i in range(hparams.steps):
+
             if not hparams.toy:
                 search_space, template = model.sess.run([data.s_train, data.t_train])
 
@@ -42,10 +45,17 @@ def train(model, hparams, data):
                 #search_space = data.addNoise(search_space, template)
                 #_, template = data.augment(search_space, template, hparams)
 
+                # Negative files
+                # mess up with data
                 if not data.check_validity(search_space, template, hparams):
                     continue
             else:
                 search_space, template = data.fake_data(hparams)
+
+            if not similar:
+                search_space, template = data.dissimilar(search_space, template)
+            label = np.array(1.0, dtype=np.float) if similar else np.array(-1.0, dtype=np.float)
+            similar = not similar
 
             #Train step data
             run_metadata = tf.RunMetadata()
@@ -61,9 +71,12 @@ def train(model, hparams, data):
                         model.merged,
                         ]
             #print(template.shape)
+            #print(label)
+            #print(label.dtype)
             feed_dict ={model.image: search_space,
                         model.template: template,
-                        model.dropout: hparams.dropout,}
+                        model.dropout: hparams.dropout,
+                        model.similar: label}
                         #model.x: np.zeros((50,784)),
                         #model.y: np.zeros((50,10))}
 
@@ -140,7 +153,7 @@ def test(model, hparams, data, iteration):
                         model.l,
                         model.p_max,
                         model.p_max_2]
-            feed_dict ={model.image: s, model.template: t, model.dropout: 1}
+            feed_dict ={model.image: s, model.template: t, model.dropout: 1, model.similar: 1.0}
 
             summary, ls, p_1, p_2 = model.sess.run(model_run,feed_dict=feed_dict)
             sum_dist = sum_dist + np.absolute(p_1-p_2)
@@ -157,7 +170,7 @@ def evaluate(deterministic, source_shape, template_shape, aligned=True, pos=(123
         t,s = data.getAlignedSample(template_shape, source_shape, test_set, deterministic)
     else:
         t,s = data.getSample(template_shape, source_shape, hparams.resize, metadata, deterministic, pos)
-    norm, filt, s_f, t_f, P_1, P_2 = sess.run([p, kernel, source_alpha, template_alpha, p_max, p_max_2], feed_dict={image: s, temp: t, drop: 1})
+    norm, filt, s_f, t_f, P_1, P_2 = sess.run([p, kernel, source_alpha, template_alpha, p_max, p_max_2], feed_dict={image: s, temp: t, drop: 1,})
     #print(norm)
     print(s_f)
     #print(s)

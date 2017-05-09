@@ -7,7 +7,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 import scipy.ndimage
 import helpers
 
-TRAIN_FILE = 'train_612x324.tfrecords' #train_712x334, train_bad_20, train
+TRAIN_FILE = 'bad_trainset_24000_612_324.tfrecords' #train_612x324, train_bad_20, train
 VALIDATION_FILE = 'validation.tfrecords'
 
 #Data Management
@@ -196,7 +196,7 @@ class Data(object):
 
       with tf.name_scope('input_provider'):
         filename_queue = tf.train.string_input_producer(
-            [filename, filename, filename, filename, filename], num_epochs=1)
+            [filename for x in range(10)], num_epochs=1)
 
         # Even when reading in multiple threads, share the filename
         # queue.
@@ -245,6 +245,13 @@ class Data(object):
             template[i, 0:width,0:width] =  blob
 
         return image
+
+    def dissimilar(self, images, templates):
+        length = templates.shape[0]-1
+        temp = np.array(templates[0])
+        templates[0:length] = templates[1:length+1]
+        templates[length] = temp
+        return images, templates
 
     def getDigit(self, d, random = False):
 

@@ -231,16 +231,16 @@ def FusionNet(g, hparams):
             g.source_alpha.append(x), g.template_alpha.append(y)
 
         # Final Layer
-        #x, y = g.source_alpha[-1], g.template_alpha[-1]
-        #x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3],   2])
-        #g.source_alpha.append(x), g.template_alpha.append(y)
+        x, y = g.source_alpha[-1], g.template_alpha[-1]
+        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3],  1 ])
+        g.source_alpha.append(x), g.template_alpha.append(y)
 
         slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
         slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
 
-        slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
-        slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
-        metrics.image_summary(slice_source_layers, 'search_space_features')
+        #slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
+        #slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
+        #metrics.image_summary(slice_source_layers, 'search_space_features')
 
         metrics.image_summary(slice_source, 'search_space')
         metrics.image_summary(slice_template, 'template')
@@ -255,24 +255,24 @@ def normxcorr(g, hparams):
 
     source = g.source_alpha[-1]
     template = g.template_alpha[-1]
-    #s_shape = source.get_shape().as_list()
-    #t_shape = template.get_shape().as_list()
+    s_shape = source.get_shape().as_list()
+    t_shape = template.get_shape().as_list()
 
 
     with tf.variable_scope('normxcor'):
-        #source = tf.transpose(source, [0,3,1,2])
-        #template = tf.transpose(template, [0,3,1,2])
+        source = tf.transpose(source, [0,3,1,2])
+        template = tf.transpose(template, [0,3,1,2])
 
-        #source = tf.reshape(source, [s_shape[0]*s_shape[3],s_shape[1], s_shape[2]])
-        #template = tf.reshape(template, [t_shape[0]*t_shape[3], t_shape[1], t_shape[2]])
+        source = tf.reshape(source, [s_shape[0]*s_shape[3],s_shape[1], s_shape[2]])
+        template = tf.reshape(template, [t_shape[0]*t_shape[3], t_shape[1], t_shape[2]])
 
         g.p = helpers.normxcorr2FFT(source, template) #get last convolved images
 
-        #p_shape = g.p.get_shape().as_list()
+        p_shape = g.p.get_shape().as_list()
 
-        #g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
+        g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
 
-        #g.p = tf.reduce_sum(g.p, axis=[1])
+        g.p = tf.reduce_mean(g.p, axis=[1])
         #g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[1])) # Take the norm
         metrics.image_summary(g.p, 'template_space')
     return g
@@ -293,7 +293,8 @@ def create_model(hparams, data, train = True):
         #else:
         g.image = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.source_width, hparams.source_width])
         g.template = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.template_width, hparams.template_width])
-        g.dropout = tf.placeholder(tf.float32)
+        g.dropout = tf.placeholder(tf.float32, name='dropout')
+        g.similar = tf.placeholder(tf.float32, name='similarity')
 
         # Add to metrics
         metrics.image_summary(g.image, 'search_space')

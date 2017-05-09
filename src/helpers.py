@@ -231,21 +231,30 @@ def fftconvolve3d(x, y, padding):
 
 def normxcorr2FFT(img, template, strides=[1,1,1,1], padding='VALID', eps = 0.01):
 
-    #normalize and get variance
-    dt = template - tf.reduce_mean(template, axis = [1,2,3], keep_dims = True) # [1,2,3]
+    # Preprocessing for 2d or 3d normxocrr
+    axis = [1,2]
+    t_shape = template.get_shape().as_list()
+    shape = t_shape[1]*t_shape[2]
+    convolve = lambda x, y: fftconvolve2d(x, y, padding = padding)
 
-    templatevariance = tf.reduce_sum(tf.square(dt), axis = [1,2,3], keep_dims = True) #[1,2,3]
-    templatevariance =  tf.squeeze(templatevariance, [3]) #[3]
+    if len(t_shape)>3:
+        axis = [1,2,3]
+        shape *= t_shape[3]
+        convolve = lambda x, y: fftconvolve3d(x, y, padding = padding)
+
+    #normalize and get variance'
+    dt = template - tf.reduce_mean(template, axis = axis, keep_dims = True)
+
+    templatevariance = tf.reduce_sum(tf.square(dt), axis = axis, keep_dims = True)
+    if len(t_shape)>3: templatevariance =  tf.squeeze(templatevariance, [3])
 
     t1 = tf.ones(tf.shape(dt))
-    tr = tf.reverse(dt, [1, 2, 3]) # ][1,2,3]
+    tr = tf.reverse(dt, axis)
 
-    numerator = fftconvolve3d(img, tr, padding=padding)
+    numerator = convolve(img, tr)
+    localsum2 = convolve(tf.square(img), t1)
+    localsum = convolve(img, t1)
 
-    localsum2 = fftconvolve3d(tf.square(img), t1, padding=padding)
-    localsum = fftconvolve3d(img, t1, padding=padding)
-
-    shape = template.get_shape()[1].value*template.get_shape()[2].value * template.get_shape()[3].value
     localvariance = localsum2-tf.square(localsum)/shape
 
     denominator = tf.sqrt(localvariance*templatevariance)
