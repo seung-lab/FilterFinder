@@ -18,7 +18,7 @@ def weight_variable(shape, identity = False, xavier = True,  name = 'conv', summ
     if identity:
         kernel_shape = np.array(shape)
         kernel_init = np.zeros(shape)
-        kernel_init[kernel_shape[0]/2,shape[1]/2] = 1.0
+        kernel_init[kernel_shape[0]/2,shape[1]/2] = 0.125
         weight = tf.Variable(kernel_init, name=name)
     elif xavier:
         weight = tf.get_variable(name, shape=tuple(shape),
@@ -98,6 +98,19 @@ def max_pool_2x2(x):
                           strides=[1, 2, 2, 1], padding='SAME')
     return o
 
+
+
+### 1x1 Convolution
+def conv_one_by_one(x):
+    stringID = 'last'
+    x_shape = x.get_shape().as_list()
+    shape = [1,1,x_shape[-1], 1]
+    identity_init = False
+
+    b = bias_variable(identity_init, shape=shape, name='bias_layer_'+stringID)
+    kernel = weight_variable(shape, identity_init, name='layer_'+stringID, summary=False)
+    out = tf.tanh(convolve2d(x, kernel, padding='SAME'))
+    return tf.squeeze(out)
 ### FusionNet
 def conv_block(x, y, kernels, bias, kernel_shape):
     kernels, bias = add_conv_weight_layer(kernels, bias, kernel_shape)

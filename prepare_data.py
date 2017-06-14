@@ -65,6 +65,7 @@ def convert_to(data, hparams, num_examples, name):
 
   g.source_alpha = [search_dim]
   g.template_alpha = [template_dim]
+  g.similar = tf.constant(1)
 
   g = models.normxcorr(g, hparams)
   g = loss.loss(g, hparams)
@@ -78,7 +79,7 @@ def convert_to(data, hparams, num_examples, name):
     result = sess.run(g.l, feed_dict={template: t, search: s})
 
     print(result)
-    if(result> -0.2) or result<-0.90:
+    if(result> -0.14) or result<-0.90:
         print('done', index)
         search_raw = np.asarray(s*255, dtype=np.uint8).tostring()
         temp_raw = np.asarray(t*255, dtype=np.uint8).tostring()
@@ -99,7 +100,7 @@ def main(unused_argv):
   data = d.Data(hparams, prepare = True )
 
   # Convert to Examples and write the result to TFRecords.
-  convert_to(data, hparams, 24000, '213123')
+  convert_to(data, hparams, 10000, 'adasd')
   #convert_to(data, hparams, 1000, 'validation_1K')
   #convert_to(data, hparams, 1000, 'test_1K')
 

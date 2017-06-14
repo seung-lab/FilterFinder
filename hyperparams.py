@@ -47,16 +47,16 @@ tf.flags.DEFINE_float("momentum", 0.9, "Learning momentum")
 tf.flags.DEFINE_float("decay", 0.75, "Learning momentum")
 tf.flags.DEFINE_float("decay_steps", 1000, "Learning momentum")
 tf.flags.DEFINE_integer("steps", 20000, "Number of steps to complete the training")
-tf.flags.DEFINE_integer("batch_size", 8, "Batch size during training")
+tf.flags.DEFINE_integer("batch_size", 12, "Batch size during training")
 tf.flags.DEFINE_integer("epoch_size", 16, "Epoch size during training")
 tf.flags.DEFINE_integer("eval_batch_size", 2, "Batch size during evaluation")
 tf.flags.DEFINE_string("optimizer", "Adam", "Optimizer Name (Adam, Adagrad, etc)")
 tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 
-kernel_shape = [[3, 3, 1, 16],
+kernel_shape = [[3, 3, 1, 8],
+                [3, 3, 8, 16],
                 [3, 3, 16, 32],
-                [3, 3, 32, 64],
-                [3, 3, 64, 128],
+                #[3, 3, 32, 64],
                 #[3, 3, 64, 128],
                 #[3, 3, 128, 256],
                 ]

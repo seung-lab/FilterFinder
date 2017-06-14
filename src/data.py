@@ -7,7 +7,7 @@ from tensorflow.examples.tutorials.mnist import input_data
 import scipy.ndimage
 import helpers
 
-TRAIN_FILE = 'bad_trainset_24000_612_324.tfrecords' #train_612x324, train_bad_20, train
+TRAIN_FILE = 'bad_across_section_10000.tfrecords' #train_612x324, train_bad_20, train
 VALIDATION_FILE = 'validation.tfrecords'
 
 #Data Management
@@ -44,7 +44,7 @@ class Data(object):
 
     def getSample(self, template_shape, source_shape, resize, metadata, j = 0, pos = (12334, 4121)):
         template_shape, source_shape, resize,
-        i = np.random.randint(metadata.shape[0]-1)
+        i = np.random.randint(metadata.shape[0]/2-2)
         x = np.random.randint(15000)+5000 #Pick a x coordinate and margin by 2000
         y = np.random.randint(10000)+10000 #Pick a y coordinate and margin by 2000
         delta = np.array([0,0])
@@ -52,11 +52,10 @@ class Data(object):
         if j>0:
             (x,y) = pos
             i = j
-
         template = np.transpose(self.getDataSample(i,x,y, resize*np.array(template_shape), delta, metadata))
         template = imresize(template, template_shape)
-        delta = [-int(metadata[i+1,3])+int(metadata[i,3]), -int(metadata[i+1,2])+int(metadata[i,2])]
-        source = np.transpose(self.getDataSample(i+1,x,y, resize*np.array(source_shape), delta, metadata))
+        delta = [-int(metadata[i+2,3])+int(metadata[i,3]), -int(metadata[i+2,2])+int(metadata[i,2])]
+        source = np.transpose(self.getDataSample(i+2,x,y, resize*np.array(source_shape), delta, metadata))
         source = imresize(source, source_shape)
         #source = np.expand_dims(source, 0)
 

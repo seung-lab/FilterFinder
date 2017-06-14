@@ -232,7 +232,7 @@ def FusionNet(g, hparams):
 
         # Final Layer
         x, y = g.source_alpha[-1], g.template_alpha[-1]
-        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3],  1 ])
+        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3], 1])
         g.source_alpha.append(x), g.template_alpha.append(y)
 
         slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
@@ -240,6 +240,8 @@ def FusionNet(g, hparams):
 
         #slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
         #slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
+        #print(slice_source_layers.get_shape())
+        #print(slice_source.get_shape())
         #metrics.image_summary(slice_source_layers, 'search_space_features')
 
         metrics.image_summary(slice_source, 'search_space')
@@ -272,8 +274,11 @@ def normxcorr(g, hparams):
 
         g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
 
-        g.p = tf.reduce_mean(g.p, axis=[1])
+        g.p = tf.reduce_sum(g.p, axis=[1])
         #g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[1])) # Take the norm
+        #g.p = helpers.conv_one_by_one(g.p)
+
+
         metrics.image_summary(g.p, 'template_space')
     return g
 
