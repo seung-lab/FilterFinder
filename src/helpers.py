@@ -107,9 +107,11 @@ def conv_one_by_one(x):
     shape = [1,1,x_shape[-1], 1]
     identity_init = False
 
-    b = bias_variable(identity_init, shape=shape, name='bias_layer_'+stringID)
+    b = bias_variable(identity_init, shape=[1], name='bias_layer_'+stringID)
     kernel = weight_variable(shape, identity_init, name='layer_'+stringID, summary=False)
-    out = tf.tanh(convolve2d(x, kernel, padding='SAME'))
+
+    out = tf.sigmoid(convolve2d(x, kernel, padding='SAME')+b)
+
     return tf.squeeze(out)
 ### FusionNet
 def conv_block(x, y, kernels, bias, kernel_shape):

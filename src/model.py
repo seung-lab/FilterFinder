@@ -232,17 +232,17 @@ def FusionNet(g, hparams):
 
         # Final Layer
         x, y = g.source_alpha[-1], g.template_alpha[-1]
-        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3], 1])
-        g.source_alpha.append(x), g.template_alpha.append(y)
+        #x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3], 1])
+        #g.source_alpha.append(x), g.template_alpha.append(y)
 
         slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
         slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
 
-        #slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
-        #slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
+        slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
+        slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
         #print(slice_source_layers.get_shape())
         #print(slice_source.get_shape())
-        #metrics.image_summary(slice_source_layers, 'search_space_features')
+        metrics.image_summary(slice_source_layers, 'search_space_features')
 
         metrics.image_summary(slice_source, 'search_space')
         metrics.image_summary(slice_template, 'template')
@@ -269,14 +269,15 @@ def normxcorr(g, hparams):
         template = tf.reshape(template, [t_shape[0]*t_shape[3], t_shape[1], t_shape[2]])
 
         g.p = helpers.normxcorr2FFT(source, template) #get last convolved images
-
         p_shape = g.p.get_shape().as_list()
 
-        g.p = tf.reshape(g.p, [s_shape[0], s_shape[3], p_shape[1], p_shape[2]])
-
-        g.p = tf.reduce_sum(g.p, axis=[1])
-        #g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[1])) # Take the norm
-        #g.p = helpers.conv_one_by_one(g.p)
+        g.p = tf.reshape(g.p, [s_shape[0],  s_shape[3], p_shape[1], p_shape[2]])
+        g.p = tf.transpose(g.p, [0,2,3,1])
+        print("davit")
+        print(g.p.get_shape())
+        #g.p = tf.reduce_sum(g.p, axis=[3])
+        #g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[3])) # Take the norm
+        g.p = helpers.conv_one_by_one(g.p)
 
 
         metrics.image_summary(g.p, 'template_space')
