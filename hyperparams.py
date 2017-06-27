@@ -56,7 +56,7 @@ tf.flags.DEFINE_integer("loglevel", 20, "Tensorflow log level")
 kernel_shape = [[3, 3, 1, 8],
                 [3, 3, 8, 16],
                 [3, 3, 16, 32],
-                #[3, 3, 32, 64],
+                [3, 3, 32, 64],
                 #[3, 3, 64, 128],
                 #[3, 3, 128, 256],
                 ]

@@ -1,17 +1,21 @@
 import tensorflow as tf
-
+import numpy as np
 def loss(g, hparams, eps = 0.001):
 
     #Get maximum p and mask the point
     g.p_max = tf.reduce_max(g.p, axis=[1,2], keep_dims=True)
-    g.mask_p = g.p>g.p_max-tf.constant(hparams.eps)
+    g.mask_p = tf.cast(g.p>g.p_max-tf.constant(hparams.eps), tf.float32)
 
     #Design the shape of the mask
-    g.mask = tf.ones([hparams.radius*2,hparams.radius*2], tf.float32)
-    g.mask = tf.expand_dims(g.mask, 2)
-    g.mask_p = tf.expand_dims(tf.cast(g.mask_p, tf.float32), 3)
+    gp_shape = np.array(tuple(g.p.get_shape().as_list()), dtype=np.int32)
+    g.mask = tf.ones([hparams.radius*2, hparams.radius*2, gp_shape[3]], tf.float32)
+    #g.mask = tf.expand_dims(g.mask, 2)
+    #g.mask_p = tf.expand_dims(tf.cast(g.mask_p, tf.float32), 3)
 
     #Dilate to have square with the center of maximum point and then flip
+    print(g.mask)
+    print(g.mask_p)
+
     g.mask_p = tf.nn.dilation2d(g.mask_p, g.mask, [1,1,1,1], [1,1,1,1], 'SAME')
     g.mask_p = tf.to_float(g.mask_p)<=tf.constant(1, dtype='float32')
     g.mask_p = tf.squeeze(tf.cast(g.mask_p, dtype='float32'))
@@ -47,7 +51,6 @@ def loss(g, hparams, eps = 0.001):
     g.to_update = tf.logical_and(tf.reduce_all(tf.is_finite(g.l)), tf.greater(tf.reduce_max(g.l), -0.1))
     #g.l = tf.where(tf.is_finite(g.l), g.l, tf.zeros(tf.shape(g.l), tf.float32), name=None)
 
-
     g.full_loss = g.l #tf.reduce_min(g.l)
 
     if hparams.mean_over_batch == True:
@@ -55,8 +58,8 @@ def loss(g, hparams, eps = 0.001):
     else:
         g.l = tf.reduce_max(g.l)
 
-    g.l = tf.where(g.similar>0, g.l, tf.abs(g.l), name=None)
-
+    g.l = tf.where(g.similar>0, g.l, tf.reduce_mean(g.p_max), name=None) #tf.abs(g.l)
+    #g.l = tf.where(g.similar>0, g.l, tf.abs(g.l), name=None)
     g.p_max = tf.reduce_mean(g.p_max)
     g.p_max_2 = tf.reduce_mean(g.p_max_2)
 

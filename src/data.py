@@ -7,13 +7,13 @@ from tensorflow.examples.tutorials.mnist import input_data
 import scipy.ndimage
 import helpers
 
-TRAIN_FILE = 'bad_across_section_10000.tfrecords' #train_612x324, train_bad_20, train
+TRAIN_FILE = 'bad_trainset_24000_612_324.tfrecords' #, train_bad_20, train, bad_across_section_10000
 VALIDATION_FILE = 'validation.tfrecords'
 
 #Data Management
 class Data(object):
     def __init__(self, hparams, prepare= False):
-        self.mnist = input_data.read_data_sets("data/MNIST_data/", one_hot=True)
+        #self.mnist = input_data.read_data_sets("data/MNIST_data/", one_hot=True)
         if prepare:
             self.metadata = self.getMetadata(hparams)
         else:

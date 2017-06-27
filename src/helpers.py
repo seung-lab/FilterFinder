@@ -4,11 +4,11 @@ import numpy as np
 from random import randint
 
 
-def bias_variable(identity = False, shape=(), name = 'bias'):
+def bias_variable(identity = False, initial=0.0, shape=(), name = 'bias'):
     if identity:
         initial = tf.constant(0.0, shape=shape)
     else:
-        initial = tf.constant(0.0, shape=shape)
+        initial = tf.constant(initial, shape=shape)
     b = tf.Variable(initial)
     #metrics.variable_summaries(b)
     return b
@@ -66,9 +66,16 @@ def deconv2d(x, W, stride=2, padding = "SAME"):
     x_shape = x.get_shape().as_list()
     #print('deconv2d')
     output_shape =[x_shape[0], x_shape[1]*2, x_shape[2]*2, x_shape[3]//2]
-    #sprint(output_shape)
+    #print(output_shape)
 
     return tf.nn.conv2d_transpose(x, W, output_shape=output_shape, strides=[1, stride, stride, 1], padding=padding)
+
+def resizeconv2d(x, W, stride=2, padding = "SAME"):
+    x_shape = x.get_shape().as_list()
+    x = tf.image.resize_images(x, size=[x_shape[1]*2, x_shape[2]*2], method=1, align_corners=True)
+
+    x_out = convolve2d(x, W, padding="SAME")
+    return x_out
 
 def crop(x, shape):
     old_shape = x.get_shape().as_list()
@@ -99,7 +106,6 @@ def max_pool_2x2(x):
     return o
 
 
-
 ### 1x1 Convolution
 def conv_one_by_one(x):
     stringID = 'last'
@@ -111,8 +117,14 @@ def conv_one_by_one(x):
     kernel = weight_variable(shape, identity_init, name='layer_'+stringID, summary=False)
 
     out = tf.sigmoid(convolve2d(x, kernel, padding='SAME')+b)
+    #out = tf.squeeze(out)
+    return out
 
-    return tf.squeeze(out)
+def batch_normalization(x, y):
+
+
+    return x, y
+
 ### FusionNet
 def conv_block(x, y, kernels, bias, kernel_shape):
     kernels, bias = add_conv_weight_layer(kernels, bias, kernel_shape)
@@ -120,13 +132,22 @@ def conv_block(x, y, kernels, bias, kernel_shape):
     x_out = tf.tanh(convolve2d(x, kernels[-1], padding='SAME')+bias[-1])
     y_out = tf.tanh(convolve2d(y, kernels[-1], padding='SAME')+bias[-1])
 
+    #normalization
+    #x_out, y_out = batch_normalization(x_out, y_out)
+
     return x_out, y_out
 
 def deconv_block(x, y, kernels, bias, kernel_shape):
+
     kernels, bias = add_conv_weight_layer(kernels, bias, kernel_shape)
 
-    x_out = deconv2d(x, kernels[-1], padding='SAME') #tf.tanh( ... +bias[-1)
-    y_out = deconv2d(y, kernels[-1], padding='SAME') #tf.tanh( ... +bias[-1])
+    kernels[-1] = tf.transpose(kernels[-1], [0,1,3,2])
+    x_out = tf.tanh(deconv2d(x, kernels[-1], padding='SAME')+bias[-1])
+    y_out = tf.tanh(deconv2d(y, kernels[-1], padding='SAME')+bias[-1])
+
+    #x_out = tf.tanh(resizeconv2d(x, kernels[-1], padding='SAME')+bias[-1])
+    #y_out = tf.tanh(resizeconv2d(y, kernels[-1], padding='SAME')+bias[-1])
+    #x_out, y_out = batch_normalization(x_out, y_out)
 
     return x_out, y_out
 
@@ -183,7 +204,7 @@ def fftconvolve2d(x, y, padding="VALID"):
     #Slice correctly based on requirements
     if padding == 'VALID':
         begin = [0, y_shape[1], y_shape[2]]
-        size  = [x_shape[0], x_shape[1]-y_shape[1], x_shape[2]-y_shape[1]]
+        size  = [x_shape[0], x_shape[1]-y_shape[1], x_shape[2]-y_shape[2]]
 
     if padding == 'SAME':
         begin = [0, y_shape[1]/2-1, y_shape[2]/2-1]

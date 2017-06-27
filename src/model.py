@@ -220,7 +220,7 @@ def FusionNet(g, hparams):
         for i in range(1, count):
             shape = hparams.kernel_shape[-i]
 
-            shape = [2,2, shape[3]/2, shape[3]]
+            shape = [2,2, shape[3], shape[3]/2]
             print(shape)
             x, y = g.source_alpha[-1], g.template_alpha[-1]
 
@@ -232,16 +232,14 @@ def FusionNet(g, hparams):
 
         # Final Layer
         x, y = g.source_alpha[-1], g.template_alpha[-1]
-        #x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3], 1])
-        #g.source_alpha.append(x), g.template_alpha.append(y)
+        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3],2])
+        g.source_alpha.append(x), g.template_alpha.append(y)
 
         slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
         slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
 
         slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
         slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
-        #print(slice_source_layers.get_shape())
-        #print(slice_source.get_shape())
         metrics.image_summary(slice_source_layers, 'search_space_features')
 
         metrics.image_summary(slice_source, 'search_space')
@@ -273,14 +271,16 @@ def normxcorr(g, hparams):
 
         g.p = tf.reshape(g.p, [s_shape[0],  s_shape[3], p_shape[1], p_shape[2]])
         g.p = tf.transpose(g.p, [0,2,3,1])
-        print("davit")
-        print(g.p.get_shape())
-        #g.p = tf.reduce_sum(g.p, axis=[3])
-        #g.p = tf.sqrt(tf.reduce_sum(tf.square(g.p), axis=[3])) # Take the norm
-        g.p = helpers.conv_one_by_one(g.p)
 
+        #g.p_combined = tf.reduce_sum(g.p, axis=[3])
+        g.p_combined = helpers.conv_one_by_one(g.p)
+        g.p =  tf.concat([g.p, g.p_combined], axis=3)
 
-        metrics.image_summary(g.p, 'template_space')
+        slice_source_layers = tf.squeeze(tf.slice(g.p, [0, 0, 0, 0], [1, -1, -1, -1]))
+        slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
+        metrics.image_summary(slice_source_layers, 'layers')
+
+        #metrics.image_summary(g.p, 'template_space')
     return g
 
 def create_model(hparams, data, train = True):
@@ -306,6 +306,7 @@ def create_model(hparams, data, train = True):
         metrics.image_summary(g.image, 'search_space')
         metrics.image_summary(g.template, 'template_space')
 
+
     # Build the model
     g = model(g, hparams)
     g = normxcorr(g, hparams)
@@ -313,13 +314,13 @@ def create_model(hparams, data, train = True):
 
     # Decaying step
     global_step = tf.Variable(0, trainable=False)
-    learning_rate = tf.train.exponential_decay( hparams.learning_rate, global_step,
-                                                hparams.decay_steps, hparams.decay, staircase=False)
+    #learning_rate = tf.train.exponential_decay( hparams.learning_rate, global_step,
+    #                                            hparams.decay_steps, hparams.decay, staircase=False)
 
     #g.train_step = tf.cond(g.to_update,
     #                            lambda: tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step),
     #                            lambda: c, name=None)
-    g.train_step = tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step)  #  tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) #
+    g.train_step = tf.train.AdamOptimizer(hparams.learning_rate).minimize(g.l, global_step=global_step)  #  tf.train.MomentumOptimizer(learning_rate=learning_rate, momentum = hparams.momentum,).minimize(g.l,  global_step=global_step) #
 
     g.merged = tf.summary.merge_all()
     g.saver = tf.train.Saver()
