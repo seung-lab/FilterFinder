@@ -116,7 +116,7 @@ def conv_one_by_one(x):
     b = bias_variable(identity_init, shape=[1], name='bias_layer_'+stringID)
     kernel = weight_variable(shape, identity_init, name='layer_'+stringID, summary=False)
 
-    out = tf.sigmoid(convolve2d(x, kernel, padding='SAME')+b)
+    out = tf.tanh(convolve2d(x, kernel, padding='SAME')+b)
     #out = tf.squeeze(out)
     return out
 
@@ -136,6 +136,40 @@ def conv_block(x, y, kernels, bias, kernel_shape):
     #x_out, y_out = batch_normalization(x_out, y_out)
 
     return x_out, y_out
+
+
+# Cross similarity
+def normalize(x):
+    return tf.div(x, tf.reduce_sum(x, axis=[1,2], keep_dims=True))
+
+#FIXME
+def whiten(x):
+    x_mean, x_var = tf.nn.moments(x, axes=[1,2], keep_dims= True)
+    x_norm = tf.div(x - x_mean, x_var)
+    return x_norm
+
+def similarity(x, y):
+    simil = tf.reduce_sum(tf.multiply(x, y), axis = [1,2], keep_dims=True)
+    return simil
+
+def cross_similarity(x):
+    x_shape = np.array(tuple(x.get_shape().as_list()), dtype=np.int32)
+    print(x)
+    x_norm = normalize(x)
+    print(x_norm)
+    similarities = []
+
+    for i in range(x_shape[3]-1):
+        for j in range(i+1, x_shape[3]):
+
+            x_slice = tf.slice(x_norm, [0, 0, 0, i], [-1, -1, -1, 1])
+            y_slice = tf.slice(x_norm, [0, 0, 0, j], [-1, -1, -1, 1])
+
+            similarities.append(similarity(x_slice, y_slice))
+
+    cross_sim = tf.reduce_mean(tf.stack(similarities, 3), axis = 3)
+
+    return cross_sim
 
 def deconv_block(x, y, kernels, bias, kernel_shape):
 

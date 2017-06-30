@@ -232,15 +232,20 @@ def FusionNet(g, hparams):
 
         # Final Layer
         x, y = g.source_alpha[-1], g.template_alpha[-1]
-        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3],2])
+        x, y = helpers.conv_block(x, y, g.kernel_conv, g.bias, [1,1, hparams.kernel_shape[0, 3], hparams.output_layer])
         g.source_alpha.append(x), g.template_alpha.append(y)
+
 
         slice_source = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
         slice_template = tf.squeeze(tf.slice(g.template_alpha[-1], [0, 0, 0, 0], [-1, -1, -1, 1]))
 
-        slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
-        slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
-        metrics.image_summary(slice_source_layers, 'search_space_features')
+        if hparams.output_layer > 1:
+            #Cross similarity
+            g.cross_similarity = helpers.cross_similarity(g.template_alpha[-1])
+
+            slice_source_layers = tf.squeeze(tf.slice(g.source_alpha[-1], [0, 0, 0, 0], [1, -1, -1, -1]))
+            slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
+            metrics.image_summary(slice_source_layers, 'search_space_features')
 
         metrics.image_summary(slice_source, 'search_space')
         metrics.image_summary(slice_template, 'template')
@@ -274,13 +279,13 @@ def normxcorr(g, hparams):
 
         #g.p_combined = tf.reduce_sum(g.p, axis=[3])
         g.p_combined = helpers.conv_one_by_one(g.p)
-        g.p =  tf.concat([g.p, g.p_combined], axis=3)
+        g.p = tf.concat([g.p, g.p_combined], axis=3)
 
         slice_source_layers = tf.squeeze(tf.slice(g.p, [0, 0, 0, 0], [1, -1, -1, -1]))
         slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
         metrics.image_summary(slice_source_layers, 'layers')
 
-        #metrics.image_summary(g.p, 'template_space')
+        metrics.image_summary(tf.squeeze(g.p_combined), 'template_space')
     return g
 
 def create_model(hparams, data, train = True):
@@ -314,8 +319,8 @@ def create_model(hparams, data, train = True):
 
     # Decaying step
     global_step = tf.Variable(0, trainable=False)
-    #learning_rate = tf.train.exponential_decay( hparams.learning_rate, global_step,
-    #                                            hparams.decay_steps, hparams.decay, staircase=False)
+    learning_rate = tf.train.exponential_decay( hparams.learning_rate, global_step,
+                                                hparams.decay_steps, hparams.decay, staircase=False)
 
     #g.train_step = tf.cond(g.to_update,
     #                            lambda: tf.train.AdamOptimizer(learning_rate).minimize(g.l, global_step=global_step),

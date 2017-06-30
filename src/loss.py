@@ -51,15 +51,31 @@ def loss(g, hparams, eps = 0.001):
     g.to_update = tf.logical_and(tf.reduce_all(tf.is_finite(g.l)), tf.greater(tf.reduce_max(g.l), -0.1))
     #g.l = tf.where(tf.is_finite(g.l), g.l, tf.zeros(tf.shape(g.l), tf.float32), name=None)
 
-    g.full_loss = g.l #tf.reduce_min(g.l)
+    print('~~~~~~ Combine Difference per layer with combined layer ~~~~~~~')
+    print(g.l)
+    g.full_loss = g.l
+    g.last_layer = tf.slice(g.l, [0, 0,0, hparams.output_layer-1], [-1,-1,-1, 1])
+    print(g.last_layer.get_shape())
+    g.l = tf.reduce_mean(g.l, axis=3, keep_dims=True)
+    g.l = 0.3*g.l + 0.7*g.last_layer
+
+    print('~~~~~~ Cross_similarity ~~~~~~')
+    print(g.cross_similarity.get_shape())
+    print(g.l)
+    g.l = g.l - 0.1*tf.abs(g.cross_similarity)
 
     if hparams.mean_over_batch == True:
         g.l = tf.reduce_mean(g.l)
     else:
         g.l = tf.reduce_max(g.l)
 
+
+
     g.l = tf.where(g.similar>0, g.l, tf.reduce_mean(g.p_max), name=None) #tf.abs(g.l)
     #g.l = tf.where(g.similar>0, g.l, tf.abs(g.l), name=None)
+
+
+
     g.p_max = tf.reduce_mean(g.p_max)
     g.p_max_2 = tf.reduce_mean(g.p_max_2)
 
