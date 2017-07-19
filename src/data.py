@@ -195,7 +195,7 @@ class Data(object):
 
       with tf.name_scope('input_provider'):
         filename_queue = tf.train.string_input_producer(
-            [filename for x in range(100)], num_epochs=1)
+            [filename for x in range(1000)], num_epochs=1)
 
         # Even when reading in multiple threads, share the filename
         # queue.

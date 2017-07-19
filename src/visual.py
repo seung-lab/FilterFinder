@@ -5,7 +5,7 @@ from scipy.misc import imresize
 import matplotlib.pyplot as plt
 from PIL import Image
 
-directory = '/data/debug/'
+directory = '/debug/'
 
 def prints():
     print("hello")
@@ -43,7 +43,7 @@ def save(image, name='out'):
     im = np.squeeze(im)
     #print(im.shape)
     result = Image.fromarray(im.astype(np.uint8))
-    result.save(directory+name+'.jpg')
+    result.save(name+'.jpg')
 
 def xcsurface(xc):
     from mpl_toolkits.mplot3d import Axes3D

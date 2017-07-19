@@ -278,7 +278,7 @@ def normxcorr(g, hparams):
         g.p = tf.transpose(g.p, [0,2,3,1])
 
         #g.p_combined = tf.reduce_sum(g.p, axis=[3])
-        g.p_combined = helpers.conv_one_by_one(g.p)
+        g.p_combined, g.combination_weight, g.combination_bias  = helpers.conv_one_by_one(g.p)
         g.p = tf.concat([g.p, g.p_combined], axis=3)
 
         slice_source_layers = tf.squeeze(tf.slice(g.p, [0, 0, 0, 0], [1, -1, -1, -1]))

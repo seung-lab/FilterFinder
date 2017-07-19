@@ -152,10 +152,12 @@ def test(model, hparams, data, iteration):
             model_run =[model.merged,
                         model.l,
                         model.p_max,
-                        model.p_max_2]
+                        model.p_max_2,
+                        model.combination_weight,
+                        model.combination_bias,]
             feed_dict ={model.image: s, model.template: t, model.dropout: 1, model.similar: 1.0}
 
-            summary, ls, p_1, p_2 = model.sess.run(model_run,feed_dict=feed_dict)
+            summary, ls, p_1, p_2, c_weight, c_b = model.sess.run(model_run,feed_dict=feed_dict)
             sum_dist = sum_dist + np.absolute(p_1-p_2)
             sum_p1 = sum_p1 + p_1
             sum_p2 = sum_p2 + p_2

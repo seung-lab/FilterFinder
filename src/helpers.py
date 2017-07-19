@@ -118,7 +118,7 @@ def conv_one_by_one(x):
 
     out = tf.tanh(convolve2d(x, kernel, padding='SAME')+b)
     #out = tf.squeeze(out)
-    return out
+    return out, kernel, b
 
 def batch_normalization(x, y):
 
@@ -175,12 +175,12 @@ def deconv_block(x, y, kernels, bias, kernel_shape):
 
     kernels, bias = add_conv_weight_layer(kernels, bias, kernel_shape)
 
-    kernels[-1] = tf.transpose(kernels[-1], [0,1,3,2])
-    x_out = tf.tanh(deconv2d(x, kernels[-1], padding='SAME')+bias[-1])
-    y_out = tf.tanh(deconv2d(y, kernels[-1], padding='SAME')+bias[-1])
+    #kernels[-1] = tf.transpose(kernels[-1], [0,1,3,2])
+    #x_out = tf.tanh(deconv2d(x, kernels[-1], padding='SAME')+bias[-1])
+    #y_out = tf.tanh(deconv2d(y, kernels[-1], padding='SAME')+bias[-1])
 
-    #x_out = tf.tanh(resizeconv2d(x, kernels[-1], padding='SAME')+bias[-1])
-    #y_out = tf.tanh(resizeconv2d(y, kernels[-1], padding='SAME')+bias[-1])
+    x_out = tf.tanh(resizeconv2d(x, kernels[-1], padding='SAME')+bias[-1])
+    y_out = tf.tanh(resizeconv2d(y, kernels[-1], padding='SAME')+bias[-1])
     #x_out, y_out = batch_normalization(x_out, y_out)
 
     return x_out, y_out
