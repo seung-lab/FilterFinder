@@ -277,15 +277,15 @@ def normxcorr(g, hparams):
         g.p = tf.reshape(g.p, [s_shape[0],  s_shape[3], p_shape[1], p_shape[2]])
         g.p = tf.transpose(g.p, [0,2,3,1])
 
-        #g.p_combined = tf.reduce_sum(g.p, axis=[3])
-        g.p_combined, g.combination_weight, g.combination_bias  = helpers.conv_one_by_one(g.p)
-        g.p = tf.concat([g.p, g.p_combined], axis=3)
+        #g.p_combined = tf.reduce_sum(g.p, axis=[3], keep_dims=True)
+        #g.p_combined, g.combination_weight, g.combination_bias  = helpers.conv_one_by_one(g.p)
+        #g.p = tf.concat([g.p, g.p_combined], axis=3)
 
-        slice_source_layers = tf.squeeze(tf.slice(g.p, [0, 0, 0, 0], [1, -1, -1, -1]))
-        slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
-        metrics.image_summary(slice_source_layers, 'layers')
+        #slice_source_layers = tf.squeeze(tf.slice(g.p, [0, 0, 0, 0], [1, -1, -1, -1]))
+        #slice_source_layers = tf.transpose(slice_source_layers, [2,0,1])
+        #metrics.image_summary(slice_source_layers, 'layers')
 
-        metrics.image_summary(tf.squeeze(g.p_combined), 'template_space')
+        metrics.image_summary(tf.squeeze(g.p), 'template_space')
     return g
 
 def create_model(hparams, data, train = True):
@@ -305,7 +305,7 @@ def create_model(hparams, data, train = True):
         g.image = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.source_width, hparams.source_width])
         g.template = tf.placeholder(tf.float32, shape=[hparams.batch_size, hparams.template_width, hparams.template_width])
         g.dropout = tf.placeholder(tf.float32, name='dropout')
-        g.similar = tf.placeholder(tf.float32, name='similarity')
+        g.similar = tf.placeholder(tf.float32, shape=[hparams.batch_size], name='similarity')
 
         # Add to metrics
         metrics.image_summary(g.image, 'search_space')

@@ -17,7 +17,7 @@ tf.flags.DEFINE_integer("dialation_rate", 1, "Global dilation rate ")
 tf.flags.DEFINE_integer("aligned", 0, "Define the data type")
 tf.flags.DEFINE_boolean("linear", False, "Decide if the convolution is linear or not")
 
-tf.flags.DEFINE_integer("output_layer", 4, "Decide output channels")
+tf.flags.DEFINE_integer("output_layer", 1, "Decide output channels")
 
 
 # Loss Parameters

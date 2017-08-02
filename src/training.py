@@ -19,7 +19,7 @@ def pretrain(model, hparams, data=None):
 
     #print("test accuracy %g"%model.accuracy.eval(session=model.sess, feed_dict={
     #    model.x: mnist.test.images, model.y: mnist.test.labels, model.keep_prob: 1.0}))
-
+import random
 def train(model, hparams, data):
 
     # Init
@@ -34,14 +34,19 @@ def train(model, hparams, data):
     # Get initial data and run through the graph
     a = time.time()
     similar = True
-    label = np.array(1.0, dtype=np.float)
+    label = np.ones((8),dtype=np.float)#np.array(1.0, dtype=np.float)
     try:
         for i in range(hparams.steps):
 
             if not hparams.toy:
                 search_space, template = model.sess.run([data.s_train, data.t_train])
 
+                #search_space_temp, template_temp = data.dissimilar(search_space, template)
+                #Provide non matches
+                #if random.choice([True, False]):
+                #    template[0, :, :] = template[1, :, :]
                 # add random noise
+
                 #search_space = data.addNoise(search_space, template)
                 #_, template = data.augment(search_space, template, hparams)
 
@@ -52,11 +57,18 @@ def train(model, hparams, data):
             else:
                 search_space, template = data.fake_data(hparams)
 
+            # experiment one: Up to 50 for giving wrong matches
+            # experiment two: Up to
+            #similar = random.choice([True,True,True,True, True, True, True, True, True, True])
             if not similar:
                 search_space, template = data.dissimilar(search_space, template)
-            label = np.array(1.0, dtype=np.float) if similar else np.array(-1.0, dtype=np.float)
-            similar = not similar
+            label = np.ones((8),dtype=np.float) if similar else -1*np.ones((8),dtype=np.float)
 
+            if similar:
+                label = 2*(np.random.rand(8)>0)-1 #Probability of misinterpreting the label
+
+            similar = not similar
+            #similar = True
             #Train step data
             run_metadata = tf.RunMetadata()
             model_run =[model.train_step,
@@ -73,6 +85,7 @@ def train(model, hparams, data):
             #print(template.shape)
             #print(label)
             #print(label.dtype)
+
             feed_dict ={model.image: search_space,
                         model.template: template,
                         model.dropout: hparams.dropout,
@@ -85,7 +98,7 @@ def train(model, hparams, data):
             loss[i] = np.absolute(step[1])
             p_max_c1[i] = step[2]
             p_max_c2[i] = step[3]
-            print(loss[i])
+            print(loss[i], not similar)
 
             if i>0 and True and loss[i]==0:
                 viz.save( oldstep[4][0], name='p')
@@ -152,12 +165,12 @@ def test(model, hparams, data, iteration):
             model_run =[model.merged,
                         model.l,
                         model.p_max,
-                        model.p_max_2,
-                        model.combination_weight,
-                        model.combination_bias,]
-            feed_dict ={model.image: s, model.template: t, model.dropout: 1, model.similar: 1.0}
+                        model.p_max_2,]
+                        #model.combination_weight,
+                        #model.combination_bias,]
+            feed_dict ={model.image: s, model.template: t, model.dropout: 1, model.similar: np.ones((8),dtype=np.float)}
 
-            summary, ls, p_1, p_2, c_weight, c_b = model.sess.run(model_run,feed_dict=feed_dict)
+            summary, ls, p_1, p_2 = model.sess.run(model_run,feed_dict=feed_dict)
             sum_dist = sum_dist + np.absolute(p_1-p_2)
             sum_p1 = sum_p1 + p_1
             sum_p2 = sum_p2 + p_2

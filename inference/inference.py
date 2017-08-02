@@ -40,6 +40,7 @@ hparams = hyperparams.create_hparams()
 data = d.Data(hparams)
 model = models.create_model(hparams, data,train = False)
 
+print('Weight Combinations', model.combination_weight.eval(), model.combination_bias.eval())
 
 #Global Parameters
 scale = 3
@@ -84,7 +85,7 @@ def process_slice(name):
     step_x = 8*3*256
     step_y = 3*256
 
-    shape = (18432+768, 18432, 4)
+    shape = (18432ct+hparams.template_width+768, 18432, 4)
     shape_origin = (util.get_shape(name)[0],util.get_shape(name)[1], 4)
     mset = np.zeros(shape, np.uint8)
 
@@ -104,7 +105,7 @@ def process_slice(name):
     #print('writing',t2-t1)
 
 
-#process_slice("1,70_prealigned")
+process_slice("1,2_prealigned")
 done = []
 def process_all():
     for i in range(1):
@@ -122,4 +123,4 @@ def process_all():
             except:
                 print('err',i+1,x+2)
 
-process_all()
+#process_all()

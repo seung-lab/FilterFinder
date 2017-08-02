@@ -18,7 +18,7 @@ def loss(g, hparams, eps = 0.001):
 
     g.mask_p = tf.nn.dilation2d(g.mask_p, g.mask, [1,1,1,1], [1,1,1,1], 'SAME')
     g.mask_p = tf.to_float(g.mask_p)<=tf.constant(1, dtype='float32')
-    g.mask_p = tf.squeeze(tf.cast(g.mask_p, dtype='float32'))
+    g.mask_p = tf.cast(g.mask_p, dtype='float32')
 
     #print(g.mask_p.get_shape())
     # Care about second distance
@@ -36,6 +36,7 @@ def loss(g, hparams, eps = 0.001):
 
     if hparams.loss_type == 'dist':
         g.l =  (g.p_max-g.p_max_2)
+        #g.l = tf.where(g.similar>0, (g.p_max-g.p_max_2), -(g.p_max-g.p_max_2), name=None)
 
     elif hparams.loss_type == 'ratio':
         g.l = g.p_max/(g.p_max_2+eps)
@@ -55,25 +56,28 @@ def loss(g, hparams, eps = 0.001):
     print(g.l)
     g.full_loss = g.l
 
-    g.last_layer = tf.expand_dims(g.l[:,:,:,-1], dim=3)
-    g.l = tf.reduce_mean(g.l, axis=3, keep_dims=True)
-    g.l = 0.3*g.l + 0.7*g.last_layer
+    #g.last_layer = tf.expand_dims(g.l[:,:,:,-1], dim=3)
+    #g.l = tf.reduce_mean(g.l, axis=3, keep_dims=True)
+    #g.l = 0.3*g.l + 0.7*g.last_layer
 
     #print('~~~~~~ Cross_similarity ~~~~~~')
     #print(g.cross_similarity.get_shape())
     #print(g.l)
-    #g.l = g.l #- 0.3*tf.abs(g.cross_similarity)
+    #g.l = 0.9*g.l - 0.1*tf.abs(g.cross_similarity)
+
     with tf.name_scope('loss_historgram'):
         tf.summary.histogram("normal/moving_mean", tf.squeeze(g.l))
+
+
 
     if hparams.mean_over_batch == True:
         g.l = tf.reduce_mean(g.l)
     else:
         g.l = tf.reduce_max(g.l)
 
+    g.l = tf.where(tf.reduce_max(g.similar)>0, g.l, tf.reduce_mean(g.p_max), name=None)
 
-
-    g.l = tf.where(g.similar>0, g.l, tf.reduce_mean(g.p_max), name=None) #tf.abs(g.l)
+     #tf.abs(g.l)  tf.reduce_mean(g.p_max)
     #g.l = tf.where(g.similar>0, g.l, tf.abs(g.l), name=None)
 
     g.p_max = tf.reduce_mean(g.p_max)

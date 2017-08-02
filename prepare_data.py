@@ -70,6 +70,7 @@ def convert_to(data, hparams, num_examples, name):
   g = models.normxcorr(g, hparams)
   g = loss.loss(g, hparams)
   index = 0
+  
   while(index < num_examples):
     #if index%20 == 0:
     #    print(str(100*index/float(num_examples))+"%")
